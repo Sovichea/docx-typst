@@ -124,6 +124,9 @@ class InlineParser:
             amount = length_to_pt(call.positional[0]) if call.positional else 0.0
             runs.append(Run(kind="tab" if amount > 6.0 else "text", text="" if amount > 6.0 else " "))
             return True
+        if name in {"line", "hline"}:
+            runs.append(Run(text="________"))
+            return True
         if name in {"strong", "emph", "underline", "strike", "smallcaps", "sub", "super", "upper", "docx-allcaps"}:
             if call.body is None:
                 return False

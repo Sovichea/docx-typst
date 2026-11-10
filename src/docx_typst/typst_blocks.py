@@ -13,6 +13,7 @@ from .model import (
     PageBreak,
     Paragraph,
     Run,
+    Spacer,
     TableBlock,
     TableCell,
     UnsupportedBlock,
@@ -62,7 +63,10 @@ class BlockBuilderMixin:
             return PageBreak()
         if name in {"v", "vertical-space"}:
             value = call.positional[0] if call.positional else 0
-            return Spacer(height_pt=length_to_pt(value))
+            height = length_to_pt(value)
+            if height <= 0:
+                return None
+            return Spacer(height_pt=height)
         if name in {"line", "hline"}:
             return HorizontalRule()
         if name == "table":
