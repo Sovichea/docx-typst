@@ -37,9 +37,23 @@ class PageWriterMixin:
         section.right_margin = Pt(page.margin_right)
         section.bottom_margin = Pt(page.margin_bottom)
         section.left_margin = Pt(page.margin_left)
-        section.header_distance = Pt(page.header_distance)
-        section.footer_distance = Pt(page.footer_distance)
+        section.header_distance = Pt(
+            0.0
+            if page.margin_top == 0.0 and page.margin_bottom == 0.0
+            else page.header_distance
+        )
+        section.footer_distance = Pt(
+            0.0
+            if page.margin_top == 0.0 and page.margin_bottom == 0.0
+            else page.footer_distance
+        )
         sect_pr = section._sectPr
+        for existing in sect_pr.findall(qn("w:pgNumType")):
+            sect_pr.remove(existing)
+        if page.page_number_start is not None:
+            number_type = OxmlElement("w:pgNumType")
+            number_type.set(qn("w:start"), str(page.page_number_start))
+            sect_pr.append(number_type)
         for existing in sect_pr.findall(qn("w:cols")):
             sect_pr.remove(existing)
         cols = OxmlElement("w:cols")

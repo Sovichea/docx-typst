@@ -114,6 +114,7 @@ def page_setup_from_dict(
     values: dict[str, Any], base: PageSetup | None = None
 ) -> PageSetup:
     page = PageSetup(**base.as_dict()) if base is not None else PageSetup()
+    page.page_number_start = None
     paper = values.get("paper")
     if isinstance(paper, str) and paper.lower() in PAPER_SIZES:
         page.width_pt, page.height_pt = PAPER_SIZES[paper.lower()]

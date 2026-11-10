@@ -42,7 +42,7 @@ class TableWriterMixin:
         ncols = max(1, ncols)
         nrows = len(block.rows)
         table = self._add_table(container, nrows, ncols)
-        if block.cell_margins_pt:
+        if block.cell_margins_pt is not None:
             tbl_pr = table._tbl.tblPr
             margins = OxmlElement("w:tblCellMar")
             for edge in ("top", "left", "bottom", "right"):

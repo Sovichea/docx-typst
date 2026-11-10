@@ -23,10 +23,12 @@ class TableMixin:
         occupied: set[tuple[int, int]] = set()
         row_cells: list[list[TableCell]] = []
         header_rows = 0
+        keep_rows: list[bool] = []
         for row_index, tr in enumerate(rows_raw):
             tr_pr = first(tr, "./w:trPr")
             if on_off(tr_pr, "w:tblHeader"):
                 header_rows += 1
+            keep_rows.append(bool(on_off(tr_pr, "w:cantSplit")))
             cells: list[TableCell] = []
             col_index = 0
             for tc in xpath(tr, "./w:tc"):
@@ -93,6 +95,7 @@ class TableMixin:
             style=style_name,
             align=attr(first(tbl_pr, "./w:jc"), "w:val"),
             stroke=stroke,
+            keep_together=bool(keep_rows) and all(keep_rows),
         )
 
 

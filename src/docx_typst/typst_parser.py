@@ -40,6 +40,7 @@ class TypstParser(BlockBuilderMixin):
         self.document = Document(source=source.name)
         self.inline = InlineParser(self.document, "body")
         self._current_page = self.document.page
+        self._pending_page_number_start: int | None = None
 
     def parse(self) -> Document:
         style_value, style_span = self._style_table()
@@ -289,6 +290,9 @@ class TypstParser(BlockBuilderMixin):
         _positional, named = parse_call_arguments(inner)
         if name == "page":
             page = page_setup_from_dict(named, self._current_page)
+            if self._pending_page_number_start is not None:
+                page.page_number_start = self._pending_page_number_start
+                self._pending_page_number_start = None
             self._current_page = page
             header = named.get("header")
             footer = named.get("footer")
@@ -316,8 +320,10 @@ class TypstParser(BlockBuilderMixin):
                         page=page,
                         header=header_blocks,
                         footer=footer_blocks,
-                        header_linked="header" not in named,
-                        footer_linked="footer" not in named,
+                        header_linked="header" not in named
+                        or named.get("header") is None,
+                        footer_linked="footer" not in named
+                        or named.get("footer") is None,
                     )
                 )
         elif name == "text":
