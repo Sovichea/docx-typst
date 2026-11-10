@@ -423,6 +423,22 @@ def render_table(table: TableBlock) -> str:
     ]
     if merges:
         lines.append(f"  merges: ({', '.join(merges)},),")
+    fills = [
+        f"({cell.row}, {cell.col}, {typst_string(cell.fill)})"
+        for row in table.rows
+        for cell in row
+        if cell.fill
+    ]
+    if fills:
+        lines.append(f"  fills: ({', '.join(fills)},),")
+    valigns = [
+        f"({cell.row}, {cell.col}, {typst_string(cell.valign)})"
+        for row in table.rows
+        for cell in row
+        if cell.valign
+    ]
+    if valigns:
+        lines.append(f"  valigns: ({', '.join(valigns)},),")
     if table.style:
         lines.append(f"  style: {typst_string(table.style)},")
     if table.align:

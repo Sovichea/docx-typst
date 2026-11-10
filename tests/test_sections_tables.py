@@ -39,12 +39,18 @@ def test_table_row_count_survives_multiple_merged_rows(tmp_path: Path) -> None:
     table.cell(2, 0).text = "Merged two"
     table.cell(3, 0).merge(table.cell(3, 1))
     table.cell(3, 0).text = "Merged three"
+    shaded = table.cell(0, 0)._tc.get_or_add_tcPr()
+    shading = OxmlElement("w:shd")
+    shading.set(qn("w:val"), "clear")
+    shading.set(qn("w:fill"), "D9EAF7")
+    shaded.append(shading)
     document.save(source)
 
     project = tmp_path / "project"
     docx_to_typst(source, project)
     main = (project / "main.typ").read_text(encoding="utf-8")
     assert "rows: 4," in main
+    assert 'fills: ((0, 0, "#D9EAF7"),),' in main
     _typst_compile(project)
 
     output = tmp_path / "roundtrip.docx"
@@ -53,6 +59,9 @@ def test_table_row_count_survives_multiple_merged_rows(tmp_path: Path) -> None:
     assert len(result.tables[0].rows) == 4
     assert result.tables[0].cell(2, 0)._tc is result.tables[0].cell(2, 1)._tc
     assert result.tables[0].cell(3, 0).text == "Merged three"
+    cell_shading = result.tables[0].cell(0, 0)._tc.tcPr.find(qn("w:shd"))
+    assert cell_shading is not None
+    assert cell_shading.get(qn("w:fill")) == "D9EAF7"
 
 
 def test_section_breaks_and_landscape_page_setup(tmp_path: Path) -> None:

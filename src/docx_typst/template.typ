@@ -254,6 +254,8 @@
   widths: auto,
   header-rows: 0,
   merges: (),
+  fills: (),
+  valigns: (),
   style: none,
   align: "left",
   stroke: 0.5pt + luma(180),
@@ -265,6 +267,14 @@
   let nrows = if rows == auto { calc.ceil(cells.len() / ncols) } else { rows }
   let merge-map = (:)
   let covered = (:)
+  let fill-map = (:)
+  for item in fills {
+    fill-map.insert(str(item.at(0)) + ":" + str(item.at(1)), item.at(2))
+  }
+  let valign-map = (:)
+  for item in valigns {
+    valign-map.insert(str(item.at(0)) + ":" + str(item.at(1)), item.at(2))
+  }
   for m in merges {
     let row = m.at(0)
     let col = m.at(1)
@@ -291,14 +301,21 @@
       let cell = cells.at(index)
       index += 1
       let span = merge-map.at(key, default: (1, 1))
+      let fill = fill-map.at(key, default: none)
+      let valign = valign-map.at(key, default: "top")
+      let cell-body = if valign == "center" { align(horizon, cell) }
+        else if valign == "bottom" { align(bottom, cell) }
+        else { cell }
+      let cell-fill = if fill == none { none } else { rgb(fill) }
       if span.at(0) > 1 or span.at(1) > 1 {
         row-cells.push(table.cell(
           rowspan: span.at(0),
           colspan: span.at(1),
+          fill: cell-fill,
           align: cell-align,
-        )[#cell])
+        )[#cell-body])
       } else {
-        row-cells.push(table.cell(align: cell-align)[#cell])
+        row-cells.push(table.cell(fill: cell-fill, align: cell-align)[#cell-body])
       }
     }
     rows.push(row-cells)

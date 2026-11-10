@@ -188,6 +188,18 @@ class BlockBuilderMixin:
                         for c in range(col, col + colspan):
                             if (r, c) != (row, col):
                                 covered.add((r, c))
+        fill_map: dict[tuple[int, int], str] = {}
+        fills = call.arg("fills")
+        if isinstance(fills, list):
+            for item in fills:
+                if isinstance(item, list) and len(item) >= 3 and isinstance(item[2], str):
+                    fill_map[(int(item[0]), int(item[1]))] = item[2]
+        valign_map: dict[tuple[int, int], str] = {}
+        valigns = call.arg("valigns")
+        if isinstance(valigns, list):
+            for item in valigns:
+                if isinstance(item, list) and len(item) >= 3 and isinstance(item[2], str):
+                    valign_map[(int(item[0]), int(item[1]))] = item[2]
         header_rows = int(call.arg("header-rows", 0) or 0)
         rows_value = call.arg("rows")
         if isinstance(rows_value, int) and rows_value > 0:
@@ -216,6 +228,8 @@ class BlockBuilderMixin:
                         rowspan=rowspan,
                         row=r,
                         col=c,
+                        fill=fill_map.get((r, c)),
+                        valign=valign_map.get((r, c)),
                     )
                 )
                 index += 1
