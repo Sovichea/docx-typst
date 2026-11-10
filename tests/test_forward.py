@@ -82,3 +82,37 @@ def test_no_media_project_stays_compilable(tmp_path: Path, source_docx: Path) ->
             text=True,
             timeout=120,
         )
+
+
+def test_typst_markup_characters_roundtrip(tmp_path: Path) -> None:
+    from docx_typst import docx_to_typst, typst_to_docx
+
+    text = "C# uses *stars*, [brackets], <angles>, @refs, and _underscores_."
+    source = tmp_path / "escaping.docx"
+    document = Document()
+    document.add_paragraph(text)
+    document.save(source)
+
+    project = tmp_path / "project"
+    docx_to_typst(source, project)
+    main = (project / "main.typ").read_text(encoding="utf-8")
+    assert "C\\#" in main
+    assert "\\*stars\\*" in main
+    assert "\\[brackets\\]" in main
+    assert "\\<angles\\>" in main
+    assert "\\@refs" in main
+    typst = shutil.which("typst")
+    if typst:
+        subprocess.run(
+            [typst, "compile", "main.typ", "preview.pdf"],
+            cwd=project,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+
+    output = tmp_path / "roundtrip.docx"
+    typst_to_docx(project / "main.typ", output)
+    result = Document(output)
+    assert result.paragraphs[0].text == text
