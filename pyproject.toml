@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "docx-typst"
+version = "0.1.0"
+description = "Convert supported Word documents to Typst and back"
+readme = "README.md"
+requires-python = ">=3.10,<3.14"
+license = "MIT"
+license-files = ["LICENSE"]
+dependencies = [
+  "python-docx>=1.1",
+  "Pillow>=10",
+  "lxml>=4.9",
+]
+keywords = ["docx", "word", "typst", "document", "converter"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Text Processing :: Markup",
+  "Topic :: Multimedia :: Graphics :: Graphics Conversion",
+]
+
+[project.urls]
+Homepage = "https://github.com/Sovichea/docx-typst"
+Repository = "https://github.com/Sovichea/docx-typst"
+Issues = "https://github.com/Sovichea/docx-typst/issues"
+
+[project.scripts]
+docx-typst = "docx_typst.cli:main"
+docx-to-typst = "docx_typst.cli:docx_to_typst"
+typst-to-docx = "docx_typst.cli:typst_to_docx"
+docx-typst-validate = "docx_typst.validate:main"
+
+[project.optional-dependencies]
+test = ["pytest>=8.2"]
+svg = ["cairosvg>=2.7"]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+docx_typst = ["template.typ", "templates/*.typ", "templates/assets/*"]
