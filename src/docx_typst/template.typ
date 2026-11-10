@@ -90,6 +90,7 @@
   set text(font: font, size: size, fill: fill, weight: weight, style: font-style)
   set par(justify: justify, leading: leading, first-line-indent: calc.max(0pt, first-value))
   let content = body
+  if content == [] { content = text("\u{200B}") }
   if spec.at("underline", default: false) { content = underline(content) }
   if spec.at("strike", default: false) { content = strike(content) }
   if spec.at("small-caps", default: false) { content = smallcaps(content) }
