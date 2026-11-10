@@ -23,11 +23,13 @@
   link(label(name))[#body]
 }
 
+#let docx-page-start(n) = counter(page).update(n)
+
 #let docx-leading(spec, size, line-spacing, line-spacing-pt) = {
   let multiple = if line-spacing != auto { line-spacing } else { spec.at("line-spacing", default: none) }
   let exact = if line-spacing-pt != auto { line-spacing-pt } else { spec.at("line-spacing-pt", default: none) }
-  if exact != none { calc.max(0pt, exact - size * 1.2) }
-  else if multiple != none { calc.max(0pt, (multiple - 1) * size * 1.2) }
+  if exact != none { calc.max(0pt, exact - size * 0.7) }
+  else if multiple != none { calc.max(0pt, (multiple * 1.2 - 0.7) * size) }
   else { 7pt }
 }
 
@@ -379,7 +381,24 @@
 
 #let docx-allcaps(body) = upper(body)
 
-#let docx-static(path: none, width: 100%, height: auto, body) = body
+#let docx-static(path: none, width: 100%, height: auto, format: "png", body) = {
+  if path != none {
+    image(path, width: width, height: height)
+  } else {
+    body
+  }
+}
+
+// Page artwork stays native in Typst. Position dimensions describe its Word frame;
+// the body retains its original Typst layout and typography.
+#let docx-canvas(id: "canvas", width: 210mm, height: 297mm, body) = {
+  block(width: width, height: height, clip: true, body)
+}
+
+#let docx-position(dx: 0pt, dy: 0pt, width: 100pt, height: 100pt,
+  style: none, align: "left", body) = {
+  place(top + left, dx: dx, dy: dy, body)
+}
 
 #let docx-panel(fill: rgb("#FFF9E7"), inset: 10pt, radius: 5pt, stroke: none, body) = {
   block(fill: fill, inset: inset, radius: radius, stroke: stroke, width: 100%, body)

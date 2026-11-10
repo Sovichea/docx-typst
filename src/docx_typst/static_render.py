@@ -56,7 +56,28 @@ def _render_body(
     body: str,
     width_pt: float,
     target: Path,
+    height_pt: float | None = None,
 ) -> str | None:
+    if target.suffix == ".svg":
+        height = f"{height_pt:.6f}pt" if height_pt is not None else "auto"
+        wrapper = project_root / f".docx-static-{target.stem}.typ"
+        wrapper.write_text("\n".join([
+            preamble,
+            f"#set page(width: {width_pt:.6f}pt, height: {height}, margin: 0pt, fill: none)",
+            f"#block(width: {width_pt:.6f}pt, height: {height}, clip: true)[",
+            body, "]",
+        ]), encoding="utf-8")
+        try:
+            # Compile the same bounded frame twice: native vectors plus the
+            # compatibility bitmap Word requires alongside its SVG extension.
+            typst.compile(str(wrapper), output=str(target), root=str(project_root), format="svg")
+            typst.compile(str(wrapper), output=str(target.with_suffix(".png")),
+                          root=str(project_root), format="png", ppi=200)
+            return None
+        except Exception as exc:
+            return str(exc)[:500]
+        finally:
+            wrapper.unlink(missing_ok=True)
     page_width = max(width_pt, 1200.0)
     wrapper = project_root / f".docx-static-{target.stem}.typ"
     wrapper.write_text(
@@ -105,7 +126,7 @@ def _render_body(
 def materialize_static_blocks(
     source: Path, text: str, project_root: Path
 ) -> tuple[str, list[dict[str, str]]]:
-    """Replace unrendered ``docx-static`` calls with PNG asset arguments."""
+    """Materialize export-only assets without changing the authored source."""
     preamble = _import_preamble(text)
     pattern = re.compile(r"#docx-static\s*\(")
     insertions: list[tuple[int, str]] = []
@@ -119,11 +140,16 @@ def materialize_static_blocks(
             continue
         count += 1
         width = _width_pt(call.arg("width"))
-        digest = hashlib.sha256(call.body.text.encode("utf-8")).hexdigest()[:10]
-        relative = f"assets/static/docx-static-{count}-{digest}.png"
+        fmt = call.arg("format", "png")
+        if fmt not in {"png", "svg"}:
+            raise ValueError(f"unsupported docx-static format: {fmt}")
+        height_value = call.arg("height")
+        height = _width_pt(height_value) if isinstance(height_value, UnitValue) else None
+        digest = hashlib.sha256((preamble + call.raw).encode("utf-8")).hexdigest()[:10]
+        relative = f"assets/static/docx-static-{count}-{digest}.{fmt}"
         target = project_root / relative
         target.parent.mkdir(parents=True, exist_ok=True)
-        error = _render_body(project_root, preamble, call.body.text, width, target)
+        error = _render_body(project_root, preamble, call.body.text, width, target, height)
         if error:
             line_number = text[: match.start()].count("\n") + 1
             warnings.append(

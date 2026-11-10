@@ -35,7 +35,7 @@ class InlineParser:
             char = text[index]
             if char == "\\" and index + 1 < len(text):
                 next_char = text[index + 1]
-                if next_char in "\r\n":
+                if next_char in " \t\r\n":
                     flush()
                     runs.append(Run(kind="break"))
                     if next_char == "\r" and index + 2 < len(text) and text[index + 2] == "\n":
