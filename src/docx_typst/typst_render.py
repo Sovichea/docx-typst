@@ -88,6 +88,9 @@ def style_entry(name: str, spec: StyleDef) -> str:
         fields.append(f"after: {format_length(spec.space_after)}")
     if spec.word_before is not None:
         fields.append(f"word-before: {format_length(spec.word_before)}")
+    for key in ("word_page_before", "word_page_line_spacing_pt"):
+        if getattr(spec, key) is not None:
+            fields.append(f"{key.replace(chr(95), chr(45))}: {format_length(getattr(spec, key))}")
     if spec.word_after is not None:
         fields.append(f"word-after: {format_length(spec.word_after)}")
     if spec.line_spacing is not None:

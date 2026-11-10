@@ -129,3 +129,9 @@ Unknown function bodies are flattened into their content when possible. Unknown 
 Every conversion writes `conversion_report.json`. Each diagnostic includes an issue name, outcome (`approximated`, `unsupported`, or `skipped`), location, fallback behaviour, reason, and expected loss.
 
 Run `docx-typst-validate source.docx project` to compare the source and generated project before editing or delivery.
+
+
+Single-line native headings at an explicit page or section start can use style
+properties `word-page-before` and `word-page-line-spacing-pt` to map Typst's tight
+first-line edges to Word's paragraph box. These properties affect DOCX export
+only; headings that wrap retain their original multiline baseline spacing.

@@ -130,3 +130,30 @@ def test_inline_column_break_occupies_separate_paragraph(tmp_path: Path) -> None
     assert marker.xpath("./w:r/w:br[@w:type='column']")
     assert not marker.xpath(".//w:t")
     assert marker.getnext().xpath(".//w:t/text()") == ["After"]
+
+
+def test_page_start_heading_metrics_leave_multiline_spacing_unchanged(tmp_path: Path) -> None:
+    project = _project(tmp_path, '''
+#let docx-styles = ("Heading 1": (
+  font: "Arial", size: 17pt, line-spacing-pt: 25.5pt,
+  word-page-before: 0pt, word-page-line-spacing-pt: 16.3pt))
+= Short heading
+Body.
+#pagebreak()
+= This deliberately long heading extends well beyond the available page width and must retain the original multiline baseline spacing in the Word export
+''')
+    source = project / "main.typ"
+    content = source.read_text(encoding="utf-8")
+    start = content.index("#let docx-styles")
+    end = content.index("= Short heading", start)
+    styles = content[start:end]
+    content = content[:start] + content[end:]
+    content = content.replace("#show: docx-document", styles + "#show: docx-document", 1)
+    source.write_text(content, encoding="utf-8")
+    output = tmp_path / "heading-metrics.docx"
+    typst_to_docx(project / "main.typ", output)
+    headings = [p for p in Document(output).paragraphs if p.style.name == "Heading 1"]
+    assert abs(headings[0].paragraph_format.line_spacing.pt - 16.3) < 0.01
+    assert headings[0].paragraph_format.space_before.pt == 0
+    assert headings[1].paragraph_format.line_spacing is None
+    assert headings[1].style.paragraph_format.line_spacing.pt == 25.5

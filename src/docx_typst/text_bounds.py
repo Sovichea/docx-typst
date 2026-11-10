@@ -83,3 +83,13 @@ def native_cell_padding(cell: Any, inset: float) -> None:
         element.set(qn("w:w"), str(round(value * 20)))
         element.set(qn("w:type"), "dxa")
         margins.append(element)
+
+
+@lru_cache(maxsize=256)
+def text_width(font: str, size: float, weight: str, text: str) -> float | None:
+    source = (f"#set text(font: {json.dumps(font)}, size: {size}pt, weight: {json.dumps(weight)})\n"
+              f"#context metadata(measure({json.dumps(text)}).width / 1pt)")
+    try:
+        return float(json.loads(typst.query(source.encode(), "metadata", field="value", one=True)))
+    except Exception:
+        return None

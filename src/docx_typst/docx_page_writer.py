@@ -121,7 +121,10 @@ class PageWriterMixin:
             pending = self._pending_space, self._pending_block_space, self._pending_page_break
             self._pending_space = self._pending_block_space = 0.0
             self._pending_page_break = False
+            previous_story = getattr(self, "_story_kind", None)
+            self._story_kind = "header" if header._element.tag == qn("w:hdr") else "footer"
             self._blocks(header, blocks)
+            self._story_kind = previous_story
             self._pending_space, self._pending_block_space, self._pending_page_break = pending
             if not blocks:
                 header.add_paragraph()
@@ -133,10 +136,13 @@ class PageWriterMixin:
     def _bottom_border(self, paragraph: Any, stroke: str | None = None) -> None:
         ppr = paragraph._p.get_or_add_pPr()
         borders = OxmlElement("w:pBdr")
-        bottom = OxmlElement("w:bottom")
+        story = getattr(self, "_story_kind", None)
+        # Typst draws the footer line above its content; Word's bottom border
+        # attaches below its paragraph box instead. Use the matching edge.
+        bottom = OxmlElement("w:top" if story == "footer" else "w:bottom")
         bottom.set(qn("w:val"), "single")
         bottom.set(qn("w:sz"), "6")
-        bottom.set(qn("w:space"), "1")
+        bottom.set(qn("w:space"), "2" if story == "footer" else "5" if story == "header" else "1")
         bottom.set(qn("w:color"), "808080")
         if stroke:
             from .typst_syntax import UnitValue, parse_value, color_to_rgb, split_top_level

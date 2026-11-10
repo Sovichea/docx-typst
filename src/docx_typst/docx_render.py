@@ -307,6 +307,11 @@ class DocxWriter(FlowSpacingMixin, TableWriterMixin, PageWriterMixin):
                 self._pending_space = 0.0
                 fmt.space_after = Pt(0)
                 fmt.line_spacing = Pt(1)
+                mark = OxmlElement("w:rPr")
+                size = OxmlElement("w:sz")
+                size.set(qn("w:val"), "2")
+                mark.append(size)
+                paragraph._p.get_or_add_pPr().append(mark)
                 self._bottom_border(paragraph, block.stroke)
             elif isinstance(block, DecorativeRule):
                 from .decorations import write_rule
@@ -379,6 +384,20 @@ class DocxWriter(FlowSpacingMixin, TableWriterMixin, PageWriterMixin):
         style = self._ensure_style(block.style or "Normal")
         paragraph = container.add_paragraph(style=style)
         self._paragraph_format(paragraph, block)
+        previous = paragraph._p.getprevious()
+        at_page_start = previous is None or (previous.tag == qn("w:p") and
+            (previous.find(".//" + qn("w:sectPr")) is not None or previous.xpath('.//w:br[@w:type="page"]')))
+        if block.native_flow and block.heading_level and at_page_start and spec is not None:
+            from .text_bounds import text_width
+            width = text_width(spec.font or self.model.default_font, spec.size or self.model.default_size,
+                               spec.weight or "bold", "".join(run.text for run in block.runs))
+            # These metrics trim first-line padding only for a heading that
+            # fits on one line. Multiline baseline spacing stays unchanged.
+            if width is not None and width <= self._content_width().pt:
+                if spec.word_page_before is not None:
+                    paragraph.paragraph_format.space_before = Pt(spec.word_page_before)
+                if spec.word_page_line_spacing_pt is not None:
+                    paragraph.paragraph_format.line_spacing = Pt(spec.word_page_line_spacing_pt)
         from .numbering import apply_numbering
         apply_numbering(self, paragraph, block)
         block.space_before = original_before

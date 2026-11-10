@@ -304,3 +304,15 @@ def test_inline_artwork_is_not_clipped_by_exact_line_height(tmp_path: Path) -> N
     assert paragraph.paragraph_format.line_spacing_rule != WD_LINE_SPACING.EXACTLY
     assert document.inline_shapes[0].width.pt == 28
     assert document.inline_shapes[0].height.pt == 28
+
+
+def test_header_and_footer_rules_use_the_correct_paragraph_edges(tmp_path: Path) -> None:
+    source = project(tmp_path, "Body")
+    source.write_text(source.read_text(encoding="utf-8").replace(
+        'margin: 65pt))',
+        'margin: 65pt), header: [#line(length: 100%)], footer: [#line(length: 100%)])'), encoding="utf-8")
+    typst_to_docx(source, tmp_path / "out.docx")
+    section = Document(tmp_path / "out.docx").sections[0]
+    assert section.header._element.xpath(".//w:pBdr/w:bottom")
+    assert section.footer._element.xpath(".//w:pBdr/w:top")
+    assert not section.footer._element.xpath(".//w:pBdr/w:bottom")

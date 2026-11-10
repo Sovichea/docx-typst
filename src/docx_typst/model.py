@@ -83,6 +83,8 @@ class StyleDef:
     space_after: float | None = None
     word_before: float | None = None
     word_after: float | None = None
+    word_page_before: float | None = None
+    word_page_line_spacing_pt: float | None = None
     line_spacing: float | None = None
     line_spacing_pt: float | None = None
     left_indent: float | None = None
@@ -119,6 +121,8 @@ class StyleDef:
             "space_after",
             "word_before",
             "word_after",
+            "word_page_before",
+            "word_page_line_spacing_pt",
             "line_spacing",
             "line_spacing_pt",
             "left_indent",

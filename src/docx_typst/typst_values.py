@@ -100,6 +100,8 @@ def style_from_spec(name: str, spec: dict[str, Any]) -> StyleDef:
         ("after", "space_after"),
         ("word-before", "word_before"),
         ("word-after", "word_after"),
+        ("word-page-before", "word_page_before"),
+        ("word-page-line-spacing-pt", "word_page_line_spacing_pt"),
         ("line-spacing-pt", "line_spacing_pt"),
         ("left-indent", "left_indent"),
         ("right-indent", "right_indent"),
