@@ -160,6 +160,8 @@
   after: auto,
   line-spacing: auto,
   line-spacing-pt: auto,
+  left-indent: auto,
+  first-line-indent: auto,
   body,
 ) = {
   let spec = docx-spec(styles, style)
@@ -174,13 +176,17 @@
   let mark = if marker == auto {
     if kind == "number" { "1." } else { "\u{2022}" }
   } else { marker }
-  let indent = level * 18pt
+  let left-value = if left-indent != auto { left-indent } else { level * 18pt }
+  let hanging-value = if first-line-indent != auto and first-line-indent < 0pt {
+    -first-line-indent
+  } else { 18pt }
+  let marker-column = calc.max(0pt, left-value - hanging-value)
   set text(font: font, size: size, fill: fill, weight: weight, style: font-style)
   set par(leading: leading)
   block(above: before-value, below: after-value, width: 100%)[
-    #pad(left: indent)[
+    #pad(left: marker-column)[
       #grid(
-        columns: (18pt, 1fr),
+        columns: (hanging-value, 1fr),
         align: (right, left),
         gutter: 4pt,
         text[#mark],

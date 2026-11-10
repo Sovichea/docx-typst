@@ -141,6 +141,26 @@ class MediaMixin:
                 rotation = float(xfrm.get("rot")) / 60000.0
             except ValueError:
                 pass
+        if crop and any(abs(value) > 0.001 for value in crop):
+            self.warn(
+                "image_crop",
+                "approximated",
+                f"paragraph:{self.counts['paragraphs']}",
+                source_type="cropped image",
+                fallback="uncropped image emitted",
+                reason="Typst image placement does not reproduce Word's source rectangle",
+                expected_loss="Cropped-away pixels may be visible",
+            )
+        if abs(rotation) > 0.01:
+            self.warn(
+                "image_rotation",
+                "approximated",
+                f"paragraph:{self.counts['paragraphs']}",
+                source_type="rotated image",
+                fallback="unrotated image emitted",
+                reason="Typst image placement does not reproduce Word's rotation",
+                expected_loss="Image orientation may differ",
+            )
         doc_pr = first(drawing, ".//wp:docPr")
         alt = doc_pr.get("descr") if doc_pr is not None else None
         title = doc_pr.get("title") if doc_pr is not None else None

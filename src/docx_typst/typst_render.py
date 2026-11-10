@@ -353,6 +353,10 @@ def _paragraph_args(paragraph: Paragraph, *, for_list: bool = False) -> list[str
     if paragraph.line_spacing_pt is not None:
         args.append(f"line-spacing-pt: {format_length(paragraph.line_spacing_pt)}")
     if for_list:
+        if paragraph.indent_left is not None:
+            args.append(f"left-indent: {format_length(paragraph.indent_left)}")
+        if paragraph.first_line_indent is not None:
+            args.append(f"first-line-indent: {format_length(paragraph.first_line_indent)}")
         return args
     if paragraph.indent_left is not None:
         args.append(f"left-indent: {format_length(paragraph.indent_left)}")
