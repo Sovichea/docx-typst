@@ -99,8 +99,8 @@ class PageWriterMixin:
                 header.add_paragraph()
 
     def _content_width(self) -> Any:
-        page = self.model.page
-        return Pt(max(72.0, page.width_pt - page.margin_left - page.margin_right))
+        section = self.doc.sections[-1]
+        return Pt(max(72.0, section.page_width.pt - section.left_margin.pt - section.right_margin.pt))
 
     def _bottom_border(self, paragraph: Any) -> None:
         ppr = paragraph._p.get_or_add_pPr()

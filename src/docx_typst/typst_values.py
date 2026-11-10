@@ -35,6 +35,21 @@ def string_value(value: Any) -> str | None:
     return None
 
 
+def stroke_value(value: Any) -> str:
+    if value is None:
+        return "none"
+    if isinstance(value, dict):
+        color = color_to_rgb(value.get("paint"))
+        width = length_to_pt(value.get("thickness"), 1.0)
+        if color:
+            return f'{width}pt + rgb("#{"".join(f"{v:02X}" for v in color)}")'
+    if isinstance(value, UnitValue):
+        return f"{value.to_pt()}pt + black"
+    if isinstance(value, str) and color_to_rgb(value):
+        return f'1pt + rgb("{value}")'
+    return str(value)
+
+
 def style_from_spec(name: str, spec: dict[str, Any]) -> StyleDef:
     style = StyleDef(name=name)
     style.based_on = string_value(spec.get("based-on"))

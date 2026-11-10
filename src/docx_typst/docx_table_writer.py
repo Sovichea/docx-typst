@@ -10,6 +10,7 @@ from docx.oxml.ns import qn
 from docx.shared import Pt
 
 from .model import Block, TableBlock
+from .typst_syntax import UnitValue, color_to_rgb, parse_value, split_top_level
 
 
 TABLE_ALIGN_MAP = {
@@ -70,6 +71,15 @@ class TableWriterMixin:
                 )
         if block.align:
             table.alignment = TABLE_ALIGN_MAP.get(block.align)
+        if block.align in {None, "left"}:
+            # Word aligns left tables by their first cell's text edge. Typst
+            # aligns the table frame; compensate for Word's cell inset.
+            indent = OxmlElement("w:tblInd")
+            indent.set(qn("w:type"), "dxa")
+            indent.set(qn("w:w"), str(round((block.cell_margins_pt if block.cell_margins_pt is not None else 5.4) * 20)))
+            table._tbl.tblPr.insert_element_before(indent, "w:tblBorders", "w:shd", "w:tblLayout", "w:tblCellMar", "w:tblLook")
+        if block.stroke is not None:
+            self._table_borders(table, block.stroke)
         widths = list(block.columns)
         declared = sum(width or 0 for width in widths)
         available = self._available_table_width(container)
@@ -142,6 +152,26 @@ class TableWriterMixin:
                     target.add_paragraph()
         self.counts["tables"] = self.counts.get("tables", 0) + 1
         self.counts["table_rows"] = self.counts.get("table_rows", 0) + nrows
+
+    def _table_borders(self, table: Any, stroke: str) -> None:
+        properties = table._tbl.tblPr
+        for existing in properties.findall(qn("w:tblBorders")):
+            properties.remove(existing)
+        borders = OxmlElement("w:tblBorders")
+        width, color = 1.0, (0, 0, 0)
+        for part in split_top_level(stroke, "+"):
+            value = parse_value(part)
+            if isinstance(value, UnitValue):
+                width = value.to_pt()
+            elif color_to_rgb(value) is not None:
+                color = color_to_rgb(value)
+        for edge in ("top", "left", "bottom", "right", "insideH", "insideV"):
+            border = OxmlElement("w:" + edge)
+            border.set(qn("w:val"), "nil" if stroke == "none" or width == 0 else "single")
+            border.set(qn("w:sz"), str(round(width * 8)))
+            border.set(qn("w:color"), "".join(f"{channel:02X}" for channel in color))
+            borders.append(border)
+        properties.insert_element_before(borders, "w:shd", "w:tblLayout", "w:tblCellMar", "w:tblLook")
 
     def _available_table_width(self, container: Any) -> float:
         if not hasattr(container, "_tc"):

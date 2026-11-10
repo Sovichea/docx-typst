@@ -41,6 +41,7 @@ class TypstParser(BlockBuilderMixin):
         self.inline = InlineParser(self.document, "body")
         self._current_page = self.document.page
         self._pending_page_number_start: int | None = None
+        self._table_settings: dict[str, Any] = {}
 
     def parse(self) -> Document:
         style_value, style_span = self._style_table()
@@ -152,6 +153,7 @@ class TypstParser(BlockBuilderMixin):
     # -- block parsing ---------------------------------------------------
 
     def _parse_blocks(self, text: str, location: str) -> list[Block]:
+        outer_table_settings = self._table_settings.copy()
         blocks: list[Block] = []
         i = 0
         length = len(text)
@@ -260,6 +262,7 @@ class TypstParser(BlockBuilderMixin):
                     Paragraph(style="Normal", runs=self.inline.parse(body))
                 )
             i = end + 1
+        self._table_settings = outer_table_settings
         return blocks
 
     def _skip_show_rule(self, text: str, start: int) -> int:
@@ -326,6 +329,8 @@ class TypstParser(BlockBuilderMixin):
                         or named.get("footer") is None,
                     )
                 )
+        elif name == "table":
+            self._table_settings.update(named)
         elif name == "text":
             font = named.get("font")
             if isinstance(font, str):

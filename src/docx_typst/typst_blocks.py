@@ -21,7 +21,7 @@ from .model import (
     UnsupportedBlock,
 )
 from .typst_syntax import Content, TypstCall, UnitValue, color_to_rgb, length_to_pt
-from .typst_values import image_from_call, string_value
+from .typst_values import image_from_call, string_value, stroke_value
 
 
 def _relative_widths(
@@ -137,6 +137,12 @@ class BlockBuilderMixin:
             if call.body is None:
                 return None
             parsed = self._parse_blocks(call.body.text, location)
+            if name == "align" and call.positional:
+                alignment = string_value(call.positional[0])
+                if alignment in {"left", "center", "right"}:
+                    for block in parsed:
+                        if isinstance(block, (TableBlock, ImageBlock, Paragraph)):
+                            block.align = alignment
             if name == "quote":
                 for block in parsed:
                     if isinstance(block, Paragraph):
@@ -367,12 +373,13 @@ class BlockBuilderMixin:
             header_rows=header_rows,
             style=string_value(call.arg("style")),
             align=string_value(call.arg("align")),
-            stroke=string_value(call.arg("stroke")),
+            stroke=stroke_value(call.arg("stroke")) if "stroke" in call.named else '0.5pt + luma(180)',
             keep_together=bool(call.arg("keep-together", False)),
             cell_margins_pt=inset,
         )
 
     def _native_table(self, call: TypstCall, location: str) -> TableBlock | None:
+        settings = {**self._table_settings, **call.named}
         columns_value = call.arg("columns", 1)
         ncols = len(columns_value) if isinstance(columns_value, list) else int(
             columns_value or 1
@@ -404,7 +411,9 @@ class BlockBuilderMixin:
                     )
                 )
             rows.append(row)
-        return TableBlock(rows=rows, columns=widths or [None] * ncols)
+        return TableBlock(rows=rows, columns=widths or [None] * ncols,
+                          cell_margins_pt=length_to_pt(settings.get("inset"), 5.0),
+                          stroke=stroke_value(settings.get("stroke", "1pt + black")))
 
     def _native_grid(self, call: TypstCall, location: str) -> TableBlock | None:
         columns_value = call.arg("columns", 1)
@@ -438,6 +447,7 @@ class BlockBuilderMixin:
             columns=widths or [None] * ncols,
             style="Normal Table",
             stroke="none",
+            cell_margins_pt=0.0,
         )
 
     def _native_list(

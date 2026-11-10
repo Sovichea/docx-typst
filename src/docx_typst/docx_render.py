@@ -552,11 +552,7 @@ class DocxWriter(TableWriterMixin, PageWriterMixin):
         if image.width_pt:
             kwargs["width"] = Pt(image.width_pt)
         elif image.width_percent:
-            content_width = (
-                self.model.page.width_pt
-                - self.model.page.margin_left
-                - self.model.page.margin_right
-            )
+            content_width = self._content_width().pt
             kwargs["width"] = Pt(content_width * image.width_percent)
         if image.height_pt:
             kwargs["height"] = Pt(image.height_pt)
@@ -568,10 +564,6 @@ class DocxWriter(TableWriterMixin, PageWriterMixin):
             if image.typst_source:
                 from .source_preservation import record_static
                 record_static(self, picture._inline, image)
-            fmt = paragraph.paragraph_format
-            fmt.line_spacing = 1.0
-            fmt.space_before = Pt(0)
-            fmt.space_after = Pt(0)
             self.counts["images"] = self.counts.get("images", 0) + 1
         except Exception as exc:
             self.model.warn(
@@ -585,6 +577,8 @@ class DocxWriter(TableWriterMixin, PageWriterMixin):
 
     def _image_block(self, container: Any, block: ImageBlock) -> None:
         paragraph = container.add_paragraph()
+        paragraph.paragraph_format.line_spacing = 1.0
+        paragraph.paragraph_format.space_after = Pt(0)
         if self._pending_page_break:
             paragraph.paragraph_format.page_break_before = True
             self._pending_page_break = False
