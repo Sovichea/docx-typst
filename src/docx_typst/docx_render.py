@@ -325,20 +325,37 @@ class DocxWriter(FlowSpacingMixin, TableWriterMixin, PageWriterMixin):
     def _flush_page_break(self, container: Any) -> None:
         if not self._pending_page_break:
             return
-        # A real break character remains visible and deletable with Word's
-        # formatting marks. Keep imported pageBreakBefore formatting separate.
-        paragraphs = container.paragraphs
-        if paragraphs and (paragraphs[-1]._p.getnext() is None or paragraphs[-1]._p.getnext().tag == qn("w:sectPr")):
-            paragraph = paragraphs[-1]
-        else:
-            paragraph = container.add_paragraph()
-            paragraph.paragraph_format.space_before = Pt(0)
-            paragraph.paragraph_format.space_after = Pt(0)
-            paragraph.paragraph_format.line_spacing = Pt(1)
-        paragraph.add_run().add_break(WD_BREAK.PAGE)
+        self._break_paragraph(container, WD_BREAK.PAGE)
         self._pending_page_break = False
 
+    def _break_paragraph(self, container: Any, kind: Any) -> None:
+        # Give the marker a full separate line, including when formatting
+        # marks are shown. A 1pt marker can look attached to the preceding text.
+        paragraph = container.add_paragraph()
+        paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        fmt = paragraph.paragraph_format
+        fmt.space_before = fmt.space_after = Pt(0)
+        fmt.line_spacing = 1.0
+        fmt.keep_with_next = False
+        fmt.keep_together = False
+        paragraph.add_run().add_break(kind)
+
     def _paragraph(self, container: Any, block: Paragraph) -> None:
+        if any(run.kind in {"page-break", "column-break"} for run in block.runs):
+            from dataclasses import replace
+            self._flush_page_break(container)
+            chunk = []
+            for run in block.runs:
+                if run.kind in {"page-break", "column-break"}:
+                    if chunk:
+                        self._paragraph(container, replace(block, runs=chunk))
+                        chunk = []
+                    self._break_paragraph(container, WD_BREAK.PAGE if run.kind == "page-break" else WD_BREAK.COLUMN)
+                else:
+                    chunk.append(run)
+            if chunk:
+                self._paragraph(container, replace(block, runs=chunk))
+            return
         self._flush_page_break(container)
         pending = self._pending_space
         weak = self._pending_block_space

@@ -25,14 +25,9 @@ class PageWriterMixin:
         boundary.alignment = WD_ALIGN_PARAGRAPH.LEFT
         fmt = boundary.paragraph_format
         fmt.space_before = fmt.space_after = Pt(0)
-        fmt.line_spacing = Pt(1)
+        fmt.line_spacing = 1.0
         fmt.keep_with_next = False
         fmt.keep_together = False
-        mark = OxmlElement("w:rPr")
-        size = OxmlElement("w:sz")
-        size.set(qn("w:val"), "2")
-        mark.append(size)
-        boundary._p.get_or_add_pPr().append(mark)
         self._page(section, block.page)
         header = block.header
         footer = block.footer

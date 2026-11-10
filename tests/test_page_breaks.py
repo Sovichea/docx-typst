@@ -50,6 +50,10 @@ Body text.
     heading = next(p for p in document.paragraphs if p.text == "Second Page Heading")
     assert heading.paragraph_format.page_break_before is not True
     assert heading.alignment == WD_ALIGN_PARAGRAPH.LEFT
+    marker = heading._p.getprevious()
+    assert marker.xpath("./w:r/w:br[@w:type='page']")
+    assert not marker.xpath(".//w:t")
+    assert marker.find("./" + qn("w:pPr") + "/" + qn("w:spacing")).get(qn("w:line")) == "240"
 
 
 def test_page_settings_inherit_margins_across_sections(tmp_path: Path) -> None:
@@ -114,3 +118,15 @@ Landscape content.
     assert marker.find("./" + qn("w:pPr") + "/" + qn("w:sectPr")) is not None
     assert not marker.xpath(".//w:t")
     assert marker.find("./" + qn("w:pPr") + "/" + qn("w:jc")).get(qn("w:val")) == "left"
+
+
+def test_inline_column_break_occupies_separate_paragraph(tmp_path: Path) -> None:
+    project = _project(tmp_path, '#docx-para[Before#colbreak()After]')
+    output = tmp_path / "column-break.docx"
+    typst_to_docx(project / "main.typ", output)
+    paragraphs = Document(output).paragraphs
+    before = next(p for p in paragraphs if p.text == "Before")
+    marker = before._p.getnext()
+    assert marker.xpath("./w:r/w:br[@w:type='column']")
+    assert not marker.xpath(".//w:t")
+    assert marker.getnext().xpath(".//w:t/text()") == ["After"]
