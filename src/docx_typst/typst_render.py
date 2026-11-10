@@ -268,7 +268,8 @@ def _render_spaces(line: str) -> str:
 def _render_inline_image(run: Run) -> str:
     image = run.image
     if image is None or not image.path:
-        return f"#docx-unsupported-image({typst_string(image.alt if image else '')})"
+        label = (image.alt if image is not None else None) or "image"
+        return f"#docx-unsupported-image({typst_string(label)})"
     args = [typst_string(image.path)]
     if image.width_pt:
         args.append(f"width: {format_length(image.width_pt)}")

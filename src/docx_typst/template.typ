@@ -216,7 +216,7 @@
   }
 }
 
-#let docx-unsupported-image(alt: "image", detail: none) = {
+#let docx-unsupported-image(alt, detail: none) = {
   box(
     width: 100%,
     height: 48pt,

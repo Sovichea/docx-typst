@@ -63,3 +63,22 @@ def test_forward_preserves_source_text(converted_project) -> None:
     text = "".join(original.itertext())
     assert "Quarterly report" in text
     assert "Merged across both columns" in text
+
+
+def test_no_media_project_stays_compilable(tmp_path: Path, source_docx: Path) -> None:
+    from docx_typst import docx_to_typst
+
+    project = tmp_path / "no-media"
+    docx_to_typst(source_docx, project, extract_media=False)
+    main = (project / "main.typ").read_text(encoding="utf-8")
+    assert "#docx-unsupported-image(" in main
+    typst = shutil.which("typst")
+    if typst:
+        subprocess.run(
+            [typst, "compile", "main.typ", "preview.pdf"],
+            cwd=project,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
