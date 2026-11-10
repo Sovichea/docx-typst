@@ -17,6 +17,7 @@ from .model import (
     Paragraph,
     Run,
     SectionBreak,
+    Spacer,
     StyleDef,
     TableBlock,
     TableCell,
@@ -309,6 +310,8 @@ def render_block(block: Block, indent: int = 0) -> str:
         return _indent(f"#docx-code({', '.join(args)})", indent)
     if isinstance(block, PageBreak):
         return _indent("#pagebreak()", indent)
+    if isinstance(block, Spacer):
+        return _indent(f"#v({format_length(block.height_pt)})", indent)
     if isinstance(block, HorizontalRule):
         return _indent("#line(length: 100%)", indent)
     if isinstance(block, UnsupportedBlock):

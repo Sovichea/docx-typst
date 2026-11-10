@@ -60,6 +60,9 @@ class BlockBuilderMixin:
             return UnsupportedBlock(kind=kind, text=string_value(call.arg("detail")) or "")
         if name == "pagebreak":
             return PageBreak()
+        if name in {"v", "vertical-space"}:
+            value = call.positional[0] if call.positional else 0
+            return Spacer(height_pt=length_to_pt(value))
         if name in {"line", "hline"}:
             return HorizontalRule()
         if name == "table":

@@ -278,6 +278,11 @@ class PageBreak:
 
 
 @dataclass
+class Spacer:
+    height_pt: float = 0.0
+
+
+@dataclass
 class HorizontalRule:
     pass
 
@@ -305,6 +310,7 @@ Block = Union[
     ImageBlock,
     CodeBlock,
     PageBreak,
+    Spacer,
     HorizontalRule,
     SectionBreak,
     UnsupportedBlock,

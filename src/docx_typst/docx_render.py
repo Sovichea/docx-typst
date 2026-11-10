@@ -27,6 +27,7 @@ from .model import (
     Paragraph,
     Run,
     SectionBreak,
+    Spacer,
     StyleDef,
     TableBlock,
     UnsupportedBlock,
@@ -254,6 +255,13 @@ class DocxWriter(TableWriterMixin, PageWriterMixin):
                 paragraph = container.add_paragraph()
                 paragraph.add_run().add_break(WD_BREAK.PAGE)
                 self.counts["page_breaks"] = self.counts.get("page_breaks", 0) + 1
+            elif isinstance(block, Spacer):
+                paragraph = container.add_paragraph()
+                fmt = paragraph.paragraph_format
+                fmt.space_before = Pt(0)
+                fmt.space_after = Pt(0)
+                fmt.line_spacing = Pt(max(1.0, block.height_pt))
+                paragraph.add_run("\u200b")
             elif isinstance(block, HorizontalRule):
                 paragraph = container.add_paragraph()
                 self._bottom_border(paragraph)
