@@ -71,6 +71,7 @@ class BaseDocxReader:
         self.extract_media = extract_media
         self.keep_empty = keep_empty
         self.docx = load_docx(self.source)
+        self.native_sources: dict[str, Any] = {}
         self.model = Document(source=self.source.name)
         self.theme = parse_theme(self._theme_root())
         self.styles = StyleResolver(self.docx.styles.element, self.theme)

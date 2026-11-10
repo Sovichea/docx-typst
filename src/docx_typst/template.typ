@@ -45,7 +45,10 @@
   footer-distance: none,
   body,
 ) = {
-  set document(title: title, author: author)
+  let metadata = (:)
+  if title != none { metadata.insert("title", title) }
+  if author != none { metadata.insert("author", author) }
+  set document(..metadata)
   let page-settings = page
   if header != none { page-settings.insert("header", header) }
   if footer != none { page-settings.insert("footer", footer) }

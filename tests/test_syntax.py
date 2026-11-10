@@ -63,10 +63,18 @@ def test_parse_call_at_includes_content_body() -> None:
 
 
 def test_colors_and_lengths() -> None:
+    assert color_to_rgb(parse_value('rgb("58686D")')) == (88, 104, 109)
+    assert color_to_rgb(parse_value('rgb("abc")')) == (170, 187, 204)
     assert color_to_rgb(parse_value('rgb("#C02020")')) == (192, 32, 32)
     assert color_to_rgb(parse_value("rgb(255, 0, 0)")) == (255, 0, 0)
     assert length_to_pt(parse_value("2.54cm")) == 72.0
     assert length_to_pt(parse_value("1in")) == 72.0
+
+
+def test_inline_line_break_accepts_space_after_backslash() -> None:
+    runs = InlineParser(Document()).parse("First \\ Second")
+    assert [run.kind for run in runs] == ["text", "break", "text"]
+    assert "".join(run.text for run in runs).strip() == "First Second"
 
 
 def test_typst_escaping_roundtrips_common_markup() -> None:

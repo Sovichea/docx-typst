@@ -82,6 +82,39 @@ Use `docx-static` for content that the static subset cannot rebuild natively, su
 
 On export, the converter copies the file's top-level imports, renders the body at 200 ppi with `typst-py`, trims the surrounding whitespace, writes a PNG under `assets/static/`, and embeds it at the requested width. Pass `height:` when the image must fit a fixed page area. A pre-rendered asset can be supplied with `path:` and is not compiled again.
 
+For vector artwork, use `format: "svg"`. This preserves the requested frame and transparency instead of trimming it. Give absolutely positioned artwork an explicit `width` and `height`:
+
+```typst
+#docx-static(width: 210mm, height: 297mm, format: "svg")[
+  // Keep the original Typst drawing code here.
+  #place(top + left, dx: 44pt, dy: 151pt)[
+    #rect(width: 82pt, height: 5pt, fill: yellow, stroke: none)
+  ]
+]
+```
+
+SVG exports include native vector media and a PNG fallback for older Word versions. Nested SVG image assets are expanded into vector groups for Word compatibility. The authored `.typ` file is never replaced with generated image paths.
+
+### Positioned covers with editable text
+
+Use `docx-canvas` for a bounded page layout and `docx-position` for editable text or images. Coordinates are relative to the page in Word; in Typst, positions behave like `place(top + left, ...)`. Keep the original text and drawing styling in each body. `style` names an existing `docx-styles` paragraph style for Word export; `align` sets Word text alignment. Frame dimensions describe the Word text box without restyling the native Typst body.
+
+```typst
+#docx-canvas(id: "cover", width: 210mm, height: 297mm)[
+  #docx-static(width: 210mm, height: 297mm, format: "svg")[
+    // Original background and illustration calls remain native here.
+  ]
+  #docx-position(dx: 44pt, dy: 191pt, width: 510pt, height: 185pt,
+    style: "Cover Title")[
+    #text(font: "League Spartan", size: 40pt, weight: "bold")[Project proposal]
+  ]
+]
+```
+
+Use a zero-margin page without a header or footer for a full-page cover. Source order controls layer order. Put artwork in `docx-static` and text in `docx-position` to keep the text editable in Word.
+
+Exported documents retain native static/canvas source and local file dependencies in a related package part. Reimport restores the drawing code, including after Word opens and saves the document. Plain-text edits and deletion of existing cover text boxes are reflected in the restored source. Arbitrary Word shape movement, new text boxes, and formatting changes are not imported into the original canvas source.
+
 Use `docx-panel` for a shaded callout that should stay editable:
 
 ```typst
@@ -156,7 +189,7 @@ backward = typst_to_docx("report-typst/main.typ", "report-roundtrip.docx")
 
 - Typst normalizes whitespace, smart punctuation, and some spacing. Word's layout engine and Typst's layout engine will not produce identical line breaks.
 - Fonts are referenced by name but are not embedded or installed. Missing fonts change wrapping and alignment.
-- Floating shapes, text boxes, comments, tracked-change metadata, native chart data, SmartArt, OLE objects, and complex equations are outside the supported subset.
+- General floating shapes and text boxes are outside the supported subset; converter-authored `docx-canvas` layouts preserve their source and editable text. Comments, tracked-change metadata, native chart data, SmartArt, OLE objects, and complex equations are outside the supported subset.
 - The reverse converter does not evaluate arbitrary Typst code. Unsupported constructs are reported and, when possible, flattened into readable content.
 - Content inside `docx-static` is embedded as an image and is not editable in Word. Keep the Typst source for later revisions.
 - Review `conversion_report.json` and inspect important pages before using the output for delivery.

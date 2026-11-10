@@ -599,8 +599,8 @@ def parse_call_arguments(inner: str) -> tuple[list[Any], dict[str, Any]]:
 def color_from_args(args: list[Any], kwargs: dict[str, Any]) -> str:
     if args:
         first = args[0]
-        if isinstance(first, str) and first.startswith("#"):
-            digits = first[1:]
+        if isinstance(first, str) and re.fullmatch(r"#?(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})", first):
+            digits = first.lstrip("#")
             if len(digits) == 3:
                 digits = "".join(c * 2 for c in digits)
             if len(digits) == 6:

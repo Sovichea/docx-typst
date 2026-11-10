@@ -13,7 +13,7 @@ from docx.oxml.ns import qn
 
 from .model import NativeBlock
 from .positioned import SOURCE_NS, _box_text
-from .typst_syntax import balanced, parse_call_at, strip_comments, typst_escape
+from .typst_syntax import parse_call_at, strip_comments, typst_escape
 
 REL = SOURCE_NS + "/package"
 
@@ -25,7 +25,7 @@ def calls(text: str, name: str):
             yield match.start(), call
 
 
-def record_canvas(writer: Any, canvas: Any, positions: list[dict[str, Any]]) -> None:
+def record_canvas(writer: Any, canvas: Any, positions: list[dict[str, Any]], bookmark: str) -> None:
     source = canvas.source
     for _, call in calls(writer.source_text, "docx-canvas"):
         if call.arg("id", "canvas") == canvas.identifier:
@@ -37,7 +37,7 @@ def record_canvas(writer: Any, canvas: Any, positions: list[dict[str, Any]]) -> 
                 record["source"] = "#" + call.raw
                 break
     writer.source_records["canvas:" + canvas.identifier] = {
-        "source": source, "positions": positions,
+        "source": source, "positions": positions, "bookmark": bookmark,
     }
 
 
@@ -126,9 +126,18 @@ def load_sources(reader: Any) -> dict[str, Any]:
 
 def read_canvas(reader: Any, paragraph: Any) -> NativeBlock | None:
     identity = paragraph.get(f"{{{SOURCE_NS}}}canvas")
+    records = getattr(reader, "native_sources", {}).get("records", {})
     if identity is None:
-        return None
-    record = getattr(reader, "native_sources", {}).get("records", {}).get("canvas:" + identity)
+        # Word strips unknown attributes when saving. Its drawing names remain
+        # stable, so recognize the same canvas through its editable text boxes.
+        names = {node.get("name") for node in paragraph.findall(".//" + qn("wp:docPr"))}
+        bookmarks = {node.get(qn("w:name")) for node in paragraph.findall(qn("w:bookmarkStart"))}
+        for key, candidate in records.items():
+            if key.startswith("canvas:") and (candidate.get("bookmark") in bookmarks
+                    or any(item["id"] in names for item in candidate["positions"])):
+                identity = key.removeprefix("canvas:")
+                break
+    record = records.get("canvas:" + identity) if identity is not None else None
     if record is None:
         return None
     source = record["source"]

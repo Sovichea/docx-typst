@@ -13,9 +13,9 @@ from docx.shared import Pt
 from lxml import etree
 
 from .model import CanvasBlock, ImageBlock, Paragraph, PositionedBlock
+from .svg_compat import office_svg
 
 ASVG = "http://schemas.microsoft.com/office/drawing/2016/SVG/main"
-VML = "urn:schemas-microsoft-com:vml"
 SOURCE_NS = "https://docx-typst.dev/source/v1"
 WPS = "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
 
@@ -23,7 +23,7 @@ WPS = "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
 def embed_svg(part: Any, inline: Any, path: Path) -> None:
     package = part.package
     svg = Part(package.next_partname("/word/media/vector%d.svg"),
-               "image/svg+xml", path.read_bytes(), package)
+               "image/svg+xml", office_svg(path.read_bytes()), package)
     rid = part.relate_to(svg, RT.IMAGE)
     blip = inline.xpath(".//a:blip")[0]
     extensions = OxmlElement("a:extLst")
@@ -38,7 +38,7 @@ def embed_svg(part: Any, inline: Any, path: Path) -> None:
 def _anchor(inline: Any, x: float, y: float, layer: int) -> Any:
     anchor = OxmlElement("wp:anchor")
     for key, value in {"distT": "0", "distB": "0", "distL": "0", "distR": "0",
-                       "simplePos": "0", "relativeHeight": str(layer), "behindDoc": "0",
+                       "simplePos": "0", "relativeHeight": str(251658240 + layer * 1024), "behindDoc": "0",
                        "locked": "0", "layoutInCell": "1", "allowOverlap": "1"}.items():
         anchor.set(key, value)
     simple = OxmlElement("wp:simplePos")
@@ -76,6 +76,8 @@ def write_canvas(writer: Any, container: Any, canvas: CanvasBlock) -> None:
         writer._pending_page_break = False
     writer._pending_space = 0
     paragraph._p.set(f"{{{SOURCE_NS}}}canvas", canvas.identifier)
+    bookmark = f"dxt_canvas_{len(writer.source_records)}"
+    writer._bookmark(paragraph, bookmark, start=True)
     positions: list[dict[str, Any]] = []
     layer = 1
     for item in canvas.blocks:
@@ -151,7 +153,8 @@ def write_canvas(writer: Any, container: Any, canvas: CanvasBlock) -> None:
         positions.append({"id": identity, "source": position.source,
                           "text": _box_text(content), "style": position.style})
         layer += 1
-    record_canvas(writer, canvas, positions)
+    writer._bookmark(paragraph, bookmark, start=False)
+    record_canvas(writer, canvas, positions, bookmark)
     writer.counts["canvases"] = writer.counts.get("canvases", 0) + 1
 
 
