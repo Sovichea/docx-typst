@@ -5,10 +5,7 @@
 // arbitrary Word behaviour; it renders the semantic document model produced by
 // docx-typst.
 
-#let docx-styles-state = state("docx-styles", (:))
-
-#let docx-resolve(style) = {
-  let styles = docx-styles-state.get()
+#let docx-spec(styles, style) = {
   if style != none and style in styles { styles.at(style) } else { (:) }
 }
 
@@ -32,17 +29,15 @@
   subject: none,
   keywords: none,
   page: (:),
-  styles: (:),
   header: none,
   footer: none,
   body,
 ) = {
-  docx-styles-state.update(styles)
   set document(title: title, author: author)
   let page-settings = page
   if header != none { page-settings.insert("header", header) }
   if footer != none { page-settings.insert("footer", footer) }
-  set page(..page-settings)
+  set std.page(..page-settings)
   set text(font: "Calibri", size: 11pt, fill: black)
   set par(leading: 0.65em)
   show heading: set block(above: 0pt, below: 0pt)
@@ -50,6 +45,7 @@
 }
 
 #let docx-para(
+  styles: (:),
   style: "Normal",
   align: auto,
   before: auto,
@@ -65,7 +61,7 @@
   bookmarks: (),
   body,
 ) = {
-  let spec = docx-resolve(style)
+  let spec = docx-spec(styles, style)
   let font = spec.at("font", default: "Calibri")
   let size = spec.at("size", default: 11pt)
   let fill = spec.at("fill", default: black)
@@ -101,12 +97,13 @@
     width: 100%,
   )[
     #pad(left: left-value, right: right-value)[
-      #align(docx-align(align-name))[#content]
+      #std.align(docx-align(align-name))[#content]
     ]
   ]
 }
 
 #let docx-heading(
+  styles: (:),
   level: 1,
   style: none,
   align: auto,
@@ -123,7 +120,7 @@
   bookmarks: (),
   body,
 ) = {
-  let spec = docx-resolve(style)
+  let spec = docx-spec(styles, style)
   let font = spec.at("font", default: "Calibri Light")
   let size = spec.at("size", default: (11pt + level * 2pt))
   let fill = spec.at("fill", default: black)
@@ -133,6 +130,7 @@
   let before-value = if before != auto { before } else { spec.at("before", default: 12pt) }
   let after-value = if after != auto { after } else { spec.at("after", default: 6pt) }
   let left-value = if left-indent != auto { left-indent } else { spec.at("left-indent", default: 0pt) }
+  let right-value = if right-indent != auto { right-indent } else { spec.at("right-indent", default: 0pt) }
   let leading = docx-leading(spec, size, line-spacing, line-spacing-pt)
   let break-before = if page-break-before != auto { page-break-before } else { spec.at("page-break-before", default: false) }
   if break-before { pagebreak(weak: true) }
@@ -145,13 +143,14 @@
     body
   })
   block(above: before-value, below: after-value, sticky: true)[
-    #pad(left: left-value)[
-      #align(docx-align(align-name))[#heading-body]
+    #pad(left: left-value, right: right-value)[
+      #std.align(docx-align(align-name))[#heading-body]
     ]
   ]
 }
 
 #let docx-item(
+  styles: (:),
   kind: "bullet",
   level: 0,
   style: "List Bullet",
@@ -163,7 +162,7 @@
   line-spacing-pt: auto,
   body,
 ) = {
-  let spec = docx-resolve(style)
+  let spec = docx-spec(styles, style)
   let font = spec.at("font", default: "Calibri")
   let size = spec.at("size", default: 11pt)
   let fill = spec.at("fill", default: black)
@@ -205,9 +204,9 @@
 ) = {
   let picture = image(path, width: width, height: height, alt: alt)
   if caption != none {
-    align(align)[#figure(picture, caption: caption)]
+    std.align(align)[#figure(picture, caption: caption)]
   } else {
-    align(align)[#picture]
+    std.align(align)[#picture]
   }
 }
 

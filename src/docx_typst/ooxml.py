@@ -63,6 +63,11 @@ def xpath(node: Any, path: str) -> list[Any]:
         return []
     try:
         return node.xpath(path, namespaces=NS)
+    except TypeError:
+        try:
+            return node.xpath(path)
+        except (AttributeError, etree.XPathEvalError):
+            return []
     except (AttributeError, etree.XPathEvalError):
         try:
             return node.xpath(path)
@@ -288,7 +293,7 @@ class StyleResolver:
         if node is None:
             return style_id
         name = first(node, "./w:name")
-        return attr(name, "w:val") or style_id
+        return canonical_style_name(attr(name, "w:val") or style_id)
 
     def style_id(self, name: str | None) -> str | None:
         if not name:
@@ -552,8 +557,8 @@ class StyleResolver:
                 result["superscript"] = True
             elif value == "subscript":
                 result["subscript"] = True
-        if style_id:
-            result["style_name"] = self.style_name(style_id)
+        if character_style_id:
+            result["style_name"] = self.style_name(character_style_id)
         return result
 
 
@@ -579,6 +584,74 @@ HIGHLIGHT_COLORS = {
 
 def highlight_color(value: str) -> str:
     return HIGHLIGHT_COLORS.get(value, "#FFFF00")
+
+
+BULLET_GLYPHS = {
+    "\uf0b7": "\u2022",
+    "\uf0a7": "\u25aa",
+    "\uf0d8": "\u27a2",
+    "\uf0fc": "\u2714",
+    "\uf0e0": "\u2794",
+    "\uf076": "\u2756",
+    "\uf0a8": "\u25c6",
+    "\uf06c": "\u25cf",
+    "\uf06e": "\u25a0",
+    "\uf075": "\u2751",
+    "\uf0f0": "\u2192",
+    "\uf0d7": "\u2022",
+    "\uf0a4": "\u25c6",
+}
+
+
+def normalize_bullet(text: str | None, font: str | None = None) -> str | None:
+    if not text:
+        return text
+    if text in BULLET_GLYPHS:
+        return BULLET_GLYPHS[text]
+    if len(text) == 1 and ord(text) >= 0xF000:
+        mapped = BULLET_GLYPHS.get(text)
+        if mapped:
+            return mapped
+        return chr(ord(text) - 0xF000) if ord(text) - 0xF000 >= 0x20 else text
+    if font and font.lower() in {"symbol", "wingdings", "wingdings 2", "wingdings 3"}:
+        if text == "o":
+            return "\u25cb"
+        if text == "n":
+            return "\u25a0"
+        if text == "l":
+            return "\u25cf"
+        if text == "u":
+            return "\u25c6"
+        if text == "p":
+            return "\u25a0"
+    return text
+
+
+def canonical_style_name(name: str | None) -> str | None:
+    if not name:
+        return name
+    match = re.match(r"^heading\s+([1-9])$", name, re.IGNORECASE)
+    if match:
+        return f"Heading {match.group(1)}"
+    mapping = {
+        "normal": "Normal",
+        "title": "Title",
+        "subtitle": "Subtitle",
+        "list paragraph": "List Paragraph",
+        "list bullet": "List Bullet",
+        "list bullet 2": "List Bullet 2",
+        "list bullet 3": "List Bullet 3",
+        "list number": "List Number",
+        "list number 2": "List Number 2",
+        "list number 3": "List Number 3",
+        "caption": "Caption",
+        "quote": "Quote",
+        "intense quote": "Intense Quote",
+        "table grid": "Table Grid",
+        "header": "Header",
+        "footer": "Footer",
+    }
+    return mapping.get(name.lower(), name)
 
 
 # ---------------------------------------------------------------------------
@@ -737,7 +810,8 @@ class NumberingResolver:
             if deeper > ilvl:
                 del counters[deeper]
         if level.fmt in {"bullet", "none"}:
-            return level.text, level
+            font = attr(first(level.rpr, "./w:rFonts"), "w:ascii") if level.rpr is not None else None
+            return normalize_bullet(level.text, font), level
         marker = level.text
         for index in range(9):
             placeholder = f"%{index + 1}"

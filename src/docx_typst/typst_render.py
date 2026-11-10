@@ -29,10 +29,8 @@ STANDARD_SIZES = {
     "a4": (595.28, 841.89),
     "a5": (419.53, 595.28),
     "a3": (841.89, 1190.55),
-    "letter": (612.0, 792.0),
-    "legal": (612.0, 1008.0),
-    "tabloid": (792.0, 1224.0),
-    "executive": (522.0, 756.0),
+    "us-letter": (612.0, 792.0),
+    "us-legal": (612.0, 1008.0),
 }
 
 
@@ -118,7 +116,7 @@ def page_dict(page: PageSetup, *, include_header_footer: bool = False) -> str:
     fields: list[str] = []
     size_name = _standard_size(page.width_pt, page.height_pt)
     if size_name:
-        fields.append(f"size: {typst_string(size_name)}")
+        fields.append(f"paper: {typst_string(size_name)}")
     else:
         fields.append(f"width: {format_length(page.width_pt)}")
         fields.append(f"height: {format_length(page.height_pt)}")
@@ -316,6 +314,7 @@ def render_paragraph(paragraph: Paragraph) -> str:
     body = render_runs(paragraph.runs)
     if paragraph.heading_level is not None:
         args = [
+            "styles: docx-styles",
             f"level: {paragraph.heading_level}",
             f"style: {typst_string(paragraph.style or f'Heading {paragraph.heading_level}')}",
         ]
@@ -323,6 +322,7 @@ def render_paragraph(paragraph: Paragraph) -> str:
         return f"#docx-heading({', '.join(args)})[{body}]"
     if paragraph.list_kind:
         args = [
+            "styles: docx-styles",
             f"kind: {typst_string(paragraph.list_kind)}",
             f"level: {paragraph.list_level}",
             f"style: {typst_string(paragraph.list_style or ('List Bullet' if paragraph.list_kind == 'bullet' else 'List Number'))}",
@@ -331,16 +331,16 @@ def render_paragraph(paragraph: Paragraph) -> str:
             args.append(f"marker: {typst_string(paragraph.marker)}")
         if paragraph.number_id is not None:
             args.append(f"num-id: {paragraph.number_id}")
-        args.extend(_paragraph_args(paragraph))
+        args.extend(_paragraph_args(paragraph, for_list=True))
         return f"#docx-item({', '.join(args)})[{body}]"
-    args = [f"style: {typst_string(paragraph.style or 'Normal')}"]
+    args = ["styles: docx-styles", f"style: {typst_string(paragraph.style or 'Normal')}"]
     args.extend(_paragraph_args(paragraph))
     return f"#docx-para({', '.join(args)})[{body}]"
 
 
-def _paragraph_args(paragraph: Paragraph) -> list[str]:
+def _paragraph_args(paragraph: Paragraph, *, for_list: bool = False) -> list[str]:
     args: list[str] = []
-    if paragraph.align:
+    if paragraph.align and not for_list:
         args.append(f"align: {typst_string(paragraph.align)}")
     if paragraph.space_before is not None:
         args.append(f"before: {format_length(paragraph.space_before)}")
@@ -350,6 +350,8 @@ def _paragraph_args(paragraph: Paragraph) -> list[str]:
         args.append(f"line-spacing: {format_number(paragraph.line_spacing)}")
     if paragraph.line_spacing_pt is not None:
         args.append(f"line-spacing-pt: {format_length(paragraph.line_spacing_pt)}")
+    if for_list:
+        return args
     if paragraph.indent_left is not None:
         args.append(f"left-indent: {format_length(paragraph.indent_left)}")
     if paragraph.indent_right is not None:
@@ -410,7 +412,7 @@ def render_table(table: TableBlock) -> str:
         if cell.rowspan > 1 or cell.colspan > 1
     ]
     if merges:
-        lines.append(f"  merges: ({', '.join(merges)}),")
+        lines.append(f"  merges: ({', '.join(merges)},),")
     if table.style:
         lines.append(f"  style: {typst_string(table.style)},")
     if table.align:
@@ -477,7 +479,6 @@ def render_document(document: Document) -> str:
         meta.append(f"  keywords: {typst_string(metadata.keywords)},")
     lines.extend(meta)
     lines.append(f"  page: {page_dict(document.page)},")
-    lines.append("  styles: docx-styles,")
     header = render_header_footer(document.header)
     footer = render_header_footer(document.footer)
     if header:
