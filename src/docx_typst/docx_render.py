@@ -142,6 +142,10 @@ class DocxWriter(TableWriterMixin, PageWriterMixin):
         font = style.font
         if spec.font:
             font.name = spec.font
+        if spec.east_asia_font:
+            rpr = style.element.get_or_add_rPr()
+            fonts = rpr.get_or_add_rFonts()
+            fonts.set(qn("w:eastAsia"), spec.east_asia_font)
         if spec.size is not None:
             font.size = Pt(spec.size)
         if spec.bold is not None:

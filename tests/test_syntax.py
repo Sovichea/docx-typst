@@ -108,10 +108,12 @@ def test_style_and_page_conversion() -> None:
             "fill": "#2F5496",
             "before": UnitValue(18.0, "pt"),
             "keep-with-next": True,
+            "east-asia-font": "Yu Gothic",
         },
     )
     assert style.name == "Heading 1"
     assert style.font == "Calibri"
+    assert style.east_asia_font == "Yu Gothic"
     assert style.size == 18.0
     assert style.color == "#2F5496"
     assert style.space_before == 18.0
