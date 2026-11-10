@@ -82,7 +82,7 @@ Use `docx-static` for content that the static subset cannot rebuild natively, su
 
 On export, the converter copies the file's top-level imports, renders the body at 200 ppi with `typst-py`, trims the surrounding whitespace, writes a PNG under `assets/static/`, and embeds it at the requested width. Pass `height:` when the image must fit a fixed page area. A pre-rendered asset can be supplied with `path:` and is not compiled again.
 
-For vector artwork, use `format: "svg"`. Explicit `width` and `height` preserve a fixed frame and transparency instead of trimming it. Without a height, the converter preserves the complete intrinsic drawing frame and scales it to the requested Word width. Give absolutely positioned artwork an explicit `width` and `height`:
+For vector artwork, use `format: "svg"`. Explicit `width` and `height` preserve a fixed frame and transparency instead of trimming it. Without a height, the converter preserves the complete intrinsic drawing frame at its native Typst size. The width argument is an export measurement hint and does not shrink a body that renders wider in Typst. Give absolutely positioned artwork an explicit `width` and `height`:
 
 ```typst
 #docx-static(width: 210mm, height: 297mm, format: "svg")[
@@ -190,6 +190,7 @@ backward = typst_to_docx("report-typst/main.typ", "report-roundtrip.docx")
 - Typst normalizes whitespace, smart punctuation, and some spacing. Word's layout engine and Typst's layout engine will not produce identical line breaks.
 - Fonts are referenced by name but are not embedded or installed. Missing fonts change wrapping and alignment.
 - Native tables inherit literal `set table` inset and stroke rules. Left-aligned table frames align with the text margin; uniform border colors and widths are written explicitly instead of relying on Word table styles. Table/image gaps preserve paragraph spacing and explicit vertical space, with adjacent automatic gaps collapsed.
+- Table paragraph show rules such as `show table: set par(justify: false)` override inherited body justification. Word cell margins account for paragraph line boxes so padding is not added twice; the logical Typst inset remains available for source round trips. Fonts, font sizes, and line spacing are retained.
 - General floating shapes and text boxes are outside the supported subset; converter-authored `docx-canvas` layouts preserve their source and editable text. Comments, tracked-change metadata, native chart data, SmartArt, OLE objects, and complex equations are outside the supported subset.
 - The reverse converter does not evaluate arbitrary Typst code. Unsupported constructs are reported and, when possible, flattened into readable content.
 - Content inside `docx-static` is embedded as an image and is not editable in Word. Keep the Typst source for later revisions.

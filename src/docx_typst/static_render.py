@@ -8,6 +8,7 @@ import re
 from typing import Any
 
 from PIL import Image, ImageChops
+from lxml import etree
 import typst
 
 from .typst_syntax import (
@@ -63,7 +64,7 @@ def _render_body(
         wrapper = project_root / f".docx-static-{target.stem}.typ"
         if height_pt is None:
             # A diagram may have an intrinsic frame wider than its requested
-            # Word width. Measure that complete frame, then let Word scale it;
+            # export hint. Measure and retain that complete native frame;
             # clipping at the requested width silently drops drawing content.
             drawing = [
                 "#set page(width: auto, height: auto, margin: 0pt, fill: none)",
@@ -176,7 +177,12 @@ def materialize_static_blocks(
                 }
             )
             continue
-        insertions.append((match.end(), f'path: "{relative}", '))
+        native_size = ""
+        if fmt == "svg":
+            viewbox = etree.fromstring(target.read_bytes()).get("viewBox", "").split()
+            if len(viewbox) == 4:
+                native_size = f"native-width: {viewbox[2]}pt, native-height: {viewbox[3]}pt, "
+        insertions.append((match.end(), f'path: "{relative}", ' + native_size))
     for position, insertion in reversed(insertions):
         text = text[:position] + insertion + text[position:]
     return text, warnings

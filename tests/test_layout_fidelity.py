@@ -135,3 +135,45 @@ def test_adjacent_table_gaps_collapse_and_compact_wrapper_keeps_template_inset(t
     assert second._tbl.tblPr.find(qn("w:tblInd")).get(qn("w:w")) == "120"
     spacer = document.paragraphs[0]
     assert spacer.paragraph_format.line_spacing.pt == 20
+
+
+def test_table_show_rule_disables_inherited_justification_and_keeps_explicit_alignment(tmp_path: Path) -> None:
+    source = project(tmp_path, '''
+#show table: set par(justify: false)
+#table(columns: (100pt, 100pt), [Left cell], [#align(right)[Right cell]])
+Body paragraph
+''')
+    source.write_text(source.read_text(encoding="utf-8").replace(
+        '#show: docx-document',
+        '#let docx-styles = ("Normal": (justify: true), "Table Text": (based-on: "Normal"))\n#show: docx-document'),
+        encoding="utf-8")
+    typst_to_docx(source, tmp_path / "out.docx")
+    document = Document(tmp_path / "out.docx")
+    left, right = document.tables[0].rows[0].cells
+    assert left.paragraphs[0]._p.pPr.find(qn("w:jc")).get(qn("w:val")) == "left"
+    assert right.paragraphs[0]._p.pPr.find(qn("w:jc")).get(qn("w:val")) == "right"
+    assert document.styles["Normal"].paragraph_format.alignment == 3
+
+
+def test_native_table_padding_accounts_for_line_boxes_without_changing_typography(tmp_path: Path) -> None:
+    source = project(tmp_path, '''
+#set table(inset: 4pt)
+#table(columns: (120pt,), [Native cell])
+''')
+    source.write_text(source.read_text(encoding="utf-8").replace(
+        '#show: docx-document',
+        '#let docx-styles = ("Table Text": (font: "Arial", size: 10pt, line-spacing-pt: 14pt))\n#show: docx-document'),
+        encoding="utf-8")
+    typst_to_docx(source, tmp_path / "out.docx")
+    document = Document(tmp_path / "out.docx")
+    table = document.tables[0]
+    logical = table._tbl.tblPr.find(qn("w:tblCellMar"))
+    assert logical.find(qn("w:top")).get(qn("w:w")) == "80"
+    adjusted = table.cell(0, 0)._tc.tcPr.find(qn("w:tcMar"))
+    assert 0 <= int(adjusted.find(qn("w:top")).get(qn("w:w"))) < 80
+    assert 0 <= int(adjusted.find(qn("w:bottom")).get(qn("w:w"))) < 80
+    assert adjusted.find(qn("w:left")) is None
+    assert document.styles["Table Text"].font.size.pt == 10
+    assert document.styles["Table Text"].paragraph_format.line_spacing.pt == 14
+    docx_to_typst(tmp_path / "out.docx", tmp_path / "restored")
+    assert "inset: 4pt" in (tmp_path / "restored/main.typ").read_text(encoding="utf-8")

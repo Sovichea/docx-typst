@@ -272,8 +272,8 @@ class BlockBuilderMixin:
     def _static_block(self, call: TypstCall, location: str) -> Block | list[Block] | None:
         path = string_value(call.arg("path"))
         if path:
-            width = call.arg("width")
-            height = call.arg("height")
+            width = call.arg("native-width", call.arg("width"))
+            height = call.arg("native-height", call.arg("height"))
             return ImageBlock(
                 image=ImageRef(
                     path=path,
@@ -369,6 +369,7 @@ class BlockBuilderMixin:
                 blocks = self._parse_blocks(
                     cells[index].text, f"{location}:cell:{r}:{c}"
                 )
+                self._table_paragraphs(blocks)
                 row.append(
                     TableCell(
                         blocks=blocks,
@@ -391,6 +392,7 @@ class BlockBuilderMixin:
             stroke=stroke_value(call.arg("stroke")) if "stroke" in call.named else '0.5pt + luma(180)',
             keep_together=bool(call.arg("keep-together", False)),
             cell_margins_pt=inset,
+            native_text_bounds=True,
         )
 
     def _native_table(self, call: TypstCall, location: str) -> TableBlock | None:
@@ -417,6 +419,7 @@ class BlockBuilderMixin:
                 for block in blocks:
                     if isinstance(block, Paragraph) and block.style in {None, "Normal"}:
                         block.style = "Table Text"
+                self._table_paragraphs(blocks)
                 row.append(
                     TableCell(
                         blocks=blocks,
@@ -429,7 +432,16 @@ class BlockBuilderMixin:
         return TableBlock(rows=rows, columns=widths or [None] * ncols,
                           cell_margins_pt=length_to_pt(settings.get("inset"), 5.0),
                           stroke=stroke_value(settings.get("stroke", "1pt + black")),
+                          native_text_bounds=True,
                           space_before=self._paragraph_spacing, space_after=self._paragraph_spacing)
+
+    def _table_paragraphs(self, blocks: list[Block]) -> None:
+        justify = self._table_par_settings.get("justify")
+        if justify is None:
+            return
+        for block in blocks:
+            if isinstance(block, Paragraph) and block.align is None:
+                block.align = "justify" if justify else "left"
 
     def _native_grid(self, call: TypstCall, location: str) -> TableBlock | None:
         columns_value = call.arg("columns", 1)

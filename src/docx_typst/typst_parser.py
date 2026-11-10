@@ -42,6 +42,7 @@ class TypstParser(BlockBuilderMixin):
         self._current_page = self.document.page
         self._pending_page_number_start: int | None = None
         self._table_settings: dict[str, Any] = {}
+        self._table_par_settings: dict[str, Any] = {}
         self._paragraph_spacing = 13.2
         self._table_helpers: dict[str, dict[str, Any]] = {}
         # Resolve simple content-only wrappers from local imports, such as the
@@ -168,6 +169,7 @@ class TypstParser(BlockBuilderMixin):
 
     def _parse_blocks(self, text: str, location: str) -> list[Block]:
         outer_table_settings = self._table_settings.copy()
+        outer_table_par_settings = self._table_par_settings.copy()
         outer_paragraph_spacing = self._paragraph_spacing
         blocks: list[Block] = []
         i = 0
@@ -233,6 +235,10 @@ class TypstParser(BlockBuilderMixin):
                     i = end
                     continue
             if stripped.startswith("#show"):
+                rule = re.match(r"#show\s+table\s*:\s*set\s+par\s*\(", text[i + indent:])
+                if rule:
+                    inner, _ = balanced(text, i + indent + rule.end() - 1, "(", ")")
+                    self._table_par_settings.update(parse_call_arguments(inner)[1])
                 i = self._skip_show_rule(text, i + indent)
                 continue
             if stripped.startswith("#import") or stripped.startswith("#let "):
@@ -278,6 +284,7 @@ class TypstParser(BlockBuilderMixin):
                 )
             i = end + 1
         self._table_settings = outer_table_settings
+        self._table_par_settings = outer_table_par_settings
         self._paragraph_spacing = outer_paragraph_spacing
         return blocks
 

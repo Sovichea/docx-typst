@@ -143,7 +143,7 @@ def test_office_svg_inlines_nested_vectors_and_renames_resources() -> None:
     assert any("scale(2.0 3.0)" in node.get("transform", "") for node in groups)
 
 
-def test_svg_scales_wider_intrinsic_diagram_without_clipping(tmp_path: Path) -> None:
+def test_svg_keeps_native_intrinsic_diagram_size_without_clipping(tmp_path: Path) -> None:
     root = project(tmp_path, '''#docx-static(width: 120pt, format: "svg")[
   #block(width: 180pt, height: 60pt)[
     #rect(width: 180pt, height: 60pt, fill: rgb("207F77"), stroke: none)
@@ -154,7 +154,8 @@ def test_svg_scales_wider_intrinsic_diagram_without_clipping(tmp_path: Path) -> 
     assert not report["diagnostics"]
     svg = next((root / "assets/static").glob("*.svg"))
     assert etree.fromstring(svg.read_bytes()).get("viewBox") == "0 0 180 60"
-    # The complete native frame is preserved; only its Word display size shrinks.
+    # docx-static leaves its body unchanged in Typst, so Word must use the same
+    # intrinsic frame rather than shrinking it to the export width hint.
     shape = Document(output).inline_shapes[0]
-    assert shape.width.pt == 120
-    assert shape.height.pt == 40
+    assert shape.width.pt == 180
+    assert shape.height.pt == 60

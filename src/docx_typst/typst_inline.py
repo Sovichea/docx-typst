@@ -228,8 +228,8 @@ class InlineParser:
         if name == "docx-static":
             path = call.arg("path")
             if isinstance(path, str):
-                width = call.arg("width")
-                height = call.arg("height")
+                width = call.arg("native-width", call.arg("width"))
+                height = call.arg("native-height", call.arg("height"))
                 runs.append(
                     Run(
                         kind="image",

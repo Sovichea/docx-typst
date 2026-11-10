@@ -266,6 +266,7 @@ class TableBlock:
     cell_margins_pt: float | None = None
     space_before: float | None = None
     space_after: float | None = None
+    native_text_bounds: bool = False
 
 
 @dataclass

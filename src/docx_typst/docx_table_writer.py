@@ -149,6 +149,9 @@ class TableWriterMixin:
                 self._cell_inset = previous_inset
                 if not cell.blocks:
                     target.add_paragraph()
+                if block.native_text_bounds and block.cell_margins_pt is not None:
+                    from .text_bounds import native_cell_padding
+                    native_cell_padding(target, block.cell_margins_pt)
         self._pending_space = 0.0
         self._pending_block_space = block.space_after or 0.0
         self.counts["tables"] = self.counts.get("tables", 0) + 1
