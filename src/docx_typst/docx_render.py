@@ -396,7 +396,12 @@ class DocxWriter(TableWriterMixin, PageWriterMixin):
         element.set(qn("w:id"), str(abs(hash(name)) % 100000))
         if start:
             element.set(qn("w:name"), name)
-            paragraph._p.insert(0, element)
+            p = paragraph._p
+            ppr = p.pPr
+            if ppr is not None:
+                ppr.addnext(element)
+            else:
+                p.insert(0, element)
         else:
             paragraph._p.append(element)
 

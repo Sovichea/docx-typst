@@ -15,6 +15,14 @@
   else { left }
 }
 
+#let docx-anchor(name) = {
+  [#label(name)]
+}
+
+#let docx-anchor-link(name, body) = {
+  link(label(name))[#body]
+}
+
 #let docx-leading(spec, size, line-spacing, line-spacing-pt) = {
   let multiple = if line-spacing != auto { line-spacing } else { spec.at("line-spacing", default: none) }
   let exact = if line-spacing-pt != auto { line-spacing-pt } else { spec.at("line-spacing-pt", default: none) }
@@ -318,14 +326,6 @@
 }
 
 #let docx-allcaps(body) = upper(body)
-
-#let docx-anchor(name) = {
-  [#label(name)]
-}
-
-#let docx-anchor-link(name, body) = {
-  link(label(name))[#body]
-}
 
 #let docx-unsupported(kind, detail: "") = {
   block(

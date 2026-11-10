@@ -6,6 +6,8 @@ import subprocess
 
 from docx import Document
 from docx.enum.section import WD_ORIENT, WD_SECTION
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 from docx.shared import Inches
 
 
@@ -86,3 +88,41 @@ def test_section_breaks_and_landscape_page_setup(tmp_path: Path) -> None:
     assert round(result.sections[1].left_margin.pt, 1) == 36.0
     assert result.sections[1].header.paragraphs[0].text == "Second header"
     assert result.sections[2].header.paragraphs[0].text == "Second header"
+
+
+def test_bookmarks_roundtrip_after_paragraph_properties(tmp_path: Path) -> None:
+    from docx_typst import docx_to_typst, typst_to_docx
+
+    source = tmp_path / "bookmark.docx"
+    document = Document()
+    paragraph = document.add_paragraph("Bookmark target")
+    start = OxmlElement("w:bookmarkStart")
+    start.set(qn("w:id"), "1")
+    start.set(qn("w:name"), "Target")
+    paragraph._p.insert(0, start)
+    end = OxmlElement("w:bookmarkEnd")
+    end.set(qn("w:id"), "1")
+    paragraph._p.append(end)
+    document.save(source)
+
+    project = tmp_path / "project"
+    docx_to_typst(source, project)
+    main = (project / "main.typ").read_text(encoding="utf-8")
+    assert 'bookmarks: ("Target",)' in main
+    _typst_compile(project)
+
+    output = tmp_path / "roundtrip.docx"
+    typst_to_docx(project / "main.typ", output)
+    result = Document(output)
+    paragraph = result.paragraphs[0]
+    children = list(paragraph._p)
+    start_index = next(
+        index
+        for index, child in enumerate(children)
+        if child.tag == qn("w:bookmarkStart")
+    )
+    ppr_index = next(
+        (index for index, child in enumerate(children) if child.tag == qn("w:pPr")),
+        -1,
+    )
+    assert start_index > ppr_index
