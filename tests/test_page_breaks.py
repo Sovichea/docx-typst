@@ -31,7 +31,7 @@ def _project(tmp_path: Path, body: str) -> Path:
     return project
 
 
-def test_typst_page_break_is_ignored_before_heading(tmp_path: Path) -> None:
+def test_page_break_moves_to_next_heading_without_blank_page(tmp_path: Path) -> None:
     project = _project(
         tmp_path,
         """First page text.
@@ -46,7 +46,7 @@ Body text.
     typst_to_docx(project / "main.typ", output)
     document = Document(output)
 
-    assert not document.element.body.xpath(".//w:br[@w:type='page']")
+    assert len(document.element.body.xpath(".//w:br[@w:type='page']")) == 1
     heading = next(p for p in document.paragraphs if p.text == "Second Page Heading")
     assert heading.paragraph_format.page_break_before is not True
     assert heading.alignment == WD_ALIGN_PARAGRAPH.LEFT
@@ -81,7 +81,7 @@ Portrait page again.
         assert abs(section.bottom_margin.pt - first.bottom_margin.pt) < 0.1
 
 
-def test_typst_page_break_is_ignored_before_table(tmp_path: Path) -> None:
+def test_page_break_before_table_keeps_table_after_break(tmp_path: Path) -> None:
     project = _project(
         tmp_path,
         """First page text.
@@ -94,4 +94,4 @@ def test_typst_page_break_is_ignored_before_table(tmp_path: Path) -> None:
     typst_to_docx(project / "main.typ", output)
     document = Document(output)
     assert len(document.tables) == 1
-    assert not document.element.body.xpath(".//w:br[@w:type='page']")
+    assert len(document.element.body.xpath(".//w:br[@w:type='page']")) == 1

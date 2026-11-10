@@ -61,8 +61,6 @@ typst-to-docx report-typst/main.typ --output report-roundtrip.docx
 
 The reverse converter reads the documented static subset. It does not evaluate arbitrary Typst programs, dynamic expressions, loops, or user-defined macros. It writes `conversion_report.json` next to the output. Pass `--reference template.docx` to reuse an existing document's theme and styles, and `--strict` to fail when unsupported content is found.
 
-Explicit page breaks and page-break-before settings are ignored during DOCX export. Word paginates the content; add manual breaks in Word as needed. Section changes needed for page size, orientation, margins, or headers and footers are retained.
-
 A typical edit-and-export loop:
 
 ```console
