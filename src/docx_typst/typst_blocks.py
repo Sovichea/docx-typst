@@ -53,6 +53,12 @@ def _relative_widths(
 class BlockBuilderMixin:
     def _call_block(self, call: TypstCall, location: str) -> Block | list[Block] | None:
         name = call.name
+        if name in self._table_helpers and call.body is not None:
+            previous = self._table_settings.copy()
+            self._table_settings.update(self._table_helpers[name])
+            blocks = self._parse_blocks(call.body.text, location)
+            self._table_settings = previous
+            return blocks
         if name == "docx-canvas" and call.body is not None:
             return CanvasBlock(
                 blocks=self._parse_blocks(call.body.text, location + ":canvas"),
@@ -132,7 +138,8 @@ class BlockBuilderMixin:
             return self._figure(call, location)
         if name == "image":
             image = image_from_call(call)
-            return ImageBlock(image=image) if image is not None else None
+            return ImageBlock(image=image, space_before=self._paragraph_spacing,
+                              space_after=self._paragraph_spacing) if image is not None else None
         if name in {"block", "align", "pad", "box", "place", "quote"}:
             if call.body is None:
                 return None
@@ -148,6 +155,11 @@ class BlockBuilderMixin:
                     if isinstance(block, Paragraph):
                         block.quoted = True
                         block.style = block.style or "Quote"
+            if parsed and name in {"block", "box"}:
+                for key, block, attribute in (("above", parsed[0], "space_before"),
+                                               ("below", parsed[-1], "space_after")):
+                    if key in call.named and isinstance(block, (TableBlock, ImageBlock)):
+                        setattr(block, attribute, length_to_pt(call.arg(key)))
             return parsed
         if name in {"list", "enum"}:
             return self._native_list(
@@ -247,7 +259,8 @@ class BlockBuilderMixin:
 
     def _image_block(self, call: TypstCall, location: str) -> ImageBlock:
         image = image_from_call(call)
-        block = ImageBlock(image=image or ImageRef(path=""))
+        block = ImageBlock(image=image or ImageRef(path=""), space_before=self._paragraph_spacing,
+                           space_after=self._paragraph_spacing)
         align = string_value(call.arg("align"))
         if align:
             block.align = align
@@ -267,7 +280,8 @@ class BlockBuilderMixin:
                     width_pt=length_to_pt(width) if width is not None else None,
                     height_pt=length_to_pt(height) if height is not None else None,
                     typst_source="#" + call.raw,
-                )
+                ),
+                space_before=self._paragraph_spacing, space_after=self._paragraph_spacing,
             )
         if call.body is not None:
             return self._parse_blocks(call.body.text, location)
@@ -287,6 +301,7 @@ class BlockBuilderMixin:
             style="Normal Table",
             stroke="none",
             cell_margins_pt=inset,
+            space_before=self._paragraph_spacing, space_after=self._paragraph_spacing,
         )
 
     def _table(self, call: TypstCall, location: str) -> TableBlock | None:
@@ -413,7 +428,8 @@ class BlockBuilderMixin:
             rows.append(row)
         return TableBlock(rows=rows, columns=widths or [None] * ncols,
                           cell_margins_pt=length_to_pt(settings.get("inset"), 5.0),
-                          stroke=stroke_value(settings.get("stroke", "1pt + black")))
+                          stroke=stroke_value(settings.get("stroke", "1pt + black")),
+                          space_before=self._paragraph_spacing, space_after=self._paragraph_spacing)
 
     def _native_grid(self, call: TypstCall, location: str) -> TableBlock | None:
         columns_value = call.arg("columns", 1)
@@ -448,6 +464,7 @@ class BlockBuilderMixin:
             style="Normal Table",
             stroke="none",
             cell_margins_pt=0.0,
+            space_before=self._paragraph_spacing, space_after=self._paragraph_spacing,
         )
 
     def _native_list(

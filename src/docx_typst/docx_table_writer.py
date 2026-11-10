@@ -28,13 +28,6 @@ VALIGN_MAP = {
 
 class TableWriterMixin:
     def _table(self, container: Any, block: TableBlock) -> None:
-        if getattr(self, "_pending_space", 0):
-            paragraph = container.add_paragraph()
-            fmt = paragraph.paragraph_format
-            fmt.space_before = Pt(self._pending_space)
-            fmt.space_after = Pt(0)
-            fmt.line_spacing = Pt(1)
-            self._pending_space = 0.0
         if not block.rows:
             return
         ncols = len(block.columns) or max(
@@ -43,6 +36,7 @@ class TableWriterMixin:
         ncols = max(1, ncols)
         nrows = len(block.rows)
         table = self._add_table(container, nrows, ncols)
+        self._table_gap(container, table, block.space_before)
         if block.cell_margins_pt is not None:
             tbl_pr = table._tbl.tblPr
             margins = OxmlElement("w:tblCellMar")
@@ -146,10 +140,17 @@ class TableWriterMixin:
                 self._clear_cell(target)
                 previous_inset = getattr(self, "_cell_inset", 0.0)
                 self._cell_inset = block.cell_margins_pt or 0.0
+                self._pending_space = self._pending_block_space = 0.0
                 self._blocks(target, cell.blocks)
+                if self._pending_space:
+                    tail = target.add_paragraph()
+                    tail.paragraph_format.space_before = tail.paragraph_format.space_after = Pt(0)
+                    tail.paragraph_format.line_spacing = Pt(self._pending_space)
                 self._cell_inset = previous_inset
                 if not cell.blocks:
                     target.add_paragraph()
+        self._pending_space = 0.0
+        self._pending_block_space = block.space_after or 0.0
         self.counts["tables"] = self.counts.get("tables", 0) + 1
         self.counts["table_rows"] = self.counts.get("table_rows", 0) + nrows
 

@@ -264,6 +264,8 @@ class TableBlock:
     autofit: bool = True
     keep_together: bool = False
     cell_margins_pt: float | None = None
+    space_before: float | None = None
+    space_after: float | None = None
 
 
 @dataclass
@@ -271,6 +273,8 @@ class ImageBlock:
     image: ImageRef
     caption: list["Block"] = field(default_factory=list)
     align: str = "center"
+    space_before: float | None = None
+    space_after: float | None = None
 
     @property
     def path(self) -> str:

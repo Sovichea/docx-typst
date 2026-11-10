@@ -189,6 +189,7 @@ backward = typst_to_docx("report-typst/main.typ", "report-roundtrip.docx")
 
 - Typst normalizes whitespace, smart punctuation, and some spacing. Word's layout engine and Typst's layout engine will not produce identical line breaks.
 - Fonts are referenced by name but are not embedded or installed. Missing fonts change wrapping and alignment.
+- Native tables inherit literal `set table` inset and stroke rules. Left-aligned table frames align with the text margin; uniform border colors and widths are written explicitly instead of relying on Word table styles. Table/image gaps preserve paragraph spacing and explicit vertical space, with adjacent automatic gaps collapsed.
 - General floating shapes and text boxes are outside the supported subset; converter-authored `docx-canvas` layouts preserve their source and editable text. Comments, tracked-change metadata, native chart data, SmartArt, OLE objects, and complex equations are outside the supported subset.
 - The reverse converter does not evaluate arbitrary Typst code. Unsupported constructs are reported and, when possible, flattened into readable content.
 - Content inside `docx-static` is embedded as an image and is not editable in Word. Keep the Typst source for later revisions.

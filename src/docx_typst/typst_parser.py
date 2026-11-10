@@ -42,6 +42,20 @@ class TypstParser(BlockBuilderMixin):
         self._current_page = self.document.page
         self._pending_page_number_start: int | None = None
         self._table_settings: dict[str, Any] = {}
+        self._paragraph_spacing = 13.2
+        self._table_helpers: dict[str, dict[str, Any]] = {}
+        # Resolve simple content-only wrappers from local imports, such as the
+        # template's compact-table. Do not evaluate arbitrary helper code.
+        modules = [self.raw_text]
+        for imported in re.findall(r'#import\s+"([^"\n]+)"', self.raw_text):
+            path = self.source.parent / imported
+            if not imported.startswith("@") and path.is_file():
+                modules.append(path.read_text(encoding="utf-8-sig"))
+        for module in modules:
+            for match in re.finditer(r"#let\s+([\w-]+)\(body\)\s*=\s*\{\s*set\s+table\s*\(", module):
+                arguments, end = balanced(module, match.end() - 1, "(", ")")
+                if re.match(r"\s*body\s*\}", module[end:]):
+                    self._table_helpers[match.group(1)] = parse_call_arguments(arguments)[1]
 
     def parse(self) -> Document:
         style_value, style_span = self._style_table()
@@ -154,6 +168,7 @@ class TypstParser(BlockBuilderMixin):
 
     def _parse_blocks(self, text: str, location: str) -> list[Block]:
         outer_table_settings = self._table_settings.copy()
+        outer_paragraph_spacing = self._paragraph_spacing
         blocks: list[Block] = []
         i = 0
         length = len(text)
@@ -263,6 +278,7 @@ class TypstParser(BlockBuilderMixin):
                 )
             i = end + 1
         self._table_settings = outer_table_settings
+        self._paragraph_spacing = outer_paragraph_spacing
         return blocks
 
     def _skip_show_rule(self, text: str, start: int) -> int:
@@ -329,6 +345,8 @@ class TypstParser(BlockBuilderMixin):
                         or named.get("footer") is None,
                     )
                 )
+        elif name == "par" and "spacing" in named:
+            self._paragraph_spacing = length_to_pt(named["spacing"], self._paragraph_spacing)
         elif name == "table":
             self._table_settings.update(named)
         elif name == "text":

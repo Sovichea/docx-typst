@@ -15,6 +15,7 @@ from docx.shared import Pt, RGBColor
 
 from .docx_page_writer import PageWriterMixin
 from .docx_table_writer import TableWriterMixin
+from .flow_spacing import FlowSpacingMixin
 from .media_compat import rasterize_for_docx
 from .ooxml import canonical_style_name
 from .model import (
@@ -62,7 +63,7 @@ HIGHLIGHT_MAP = {
 }
 
 
-class DocxWriter(TableWriterMixin, PageWriterMixin):
+class DocxWriter(FlowSpacingMixin, TableWriterMixin, PageWriterMixin):
     def __init__(
         self,
         document: Document,
@@ -78,6 +79,7 @@ class DocxWriter(TableWriterMixin, PageWriterMixin):
         self.doc = load_docx(reference) if reference else load_docx()
         self.counts: dict[str, int] = {}
         self._pending_space = 0.0
+        self._pending_block_space = 0.0
         self._pending_page_break = False
         self.source_text = ""
         self.source_records: dict[str, Any] = {}
@@ -276,6 +278,7 @@ class DocxWriter(TableWriterMixin, PageWriterMixin):
                 self._code(container, block)
             elif isinstance(block, PageBreak):
                 self._pending_page_break = True
+                self._pending_block_space = 0.0
                 self.counts["page_breaks"] = self.counts.get("page_breaks", 0) + 1
             elif isinstance(block, Spacer):
                 self._pending_space += max(0.0, block.height_pt)
@@ -290,6 +293,7 @@ class DocxWriter(TableWriterMixin, PageWriterMixin):
                 self._bottom_border(paragraph)
             elif isinstance(block, SectionBreak):
                 self._pending_page_break = False
+                self._pending_block_space = 0.0
                 self._section(block)
             elif isinstance(block, UnsupportedBlock):
                 paragraph = container.add_paragraph()
@@ -316,13 +320,16 @@ class DocxWriter(TableWriterMixin, PageWriterMixin):
             block.page_break_before = True
             self._pending_page_break = False
         pending = self._pending_space
+        weak = self._pending_block_space
         self._pending_space = 0.0
+        self._pending_block_space = 0.0
         spec = self.model.styles.get(block.style or "Normal")
-        if pending and spec is not None and spec.word_before is not None:
-            pending = spec.word_before
         original_before = block.space_before
-        if pending:
-            block.space_before = (block.space_before or 0.0) + pending
+        if pending or weak:
+            before = block.space_before
+            if before is None and spec is not None:
+                before = spec.word_before if spec.word_before is not None else spec.space_before
+            block.space_before = max(weak, before or 0.0) + pending
         style = self._ensure_style(block.style or "Normal")
         paragraph = container.add_paragraph(style=style)
         self._paragraph_format(paragraph, block)
@@ -582,12 +589,11 @@ class DocxWriter(TableWriterMixin, PageWriterMixin):
         if self._pending_page_break:
             paragraph.paragraph_format.page_break_before = True
             self._pending_page_break = False
-        if self._pending_space:
-            paragraph.paragraph_format.space_before = Pt(self._pending_space)
-            self._pending_space = 0.0
+        paragraph.paragraph_format.space_before = Pt(self._block_gap(paragraph._p, container, block.space_before))
         if block.align:
             paragraph.alignment = ALIGN_MAP.get(block.align, WD_ALIGN_PARAGRAPH.CENTER)
         self._image(paragraph, block.image)
+        self._pending_block_space = block.space_after or 0.0
         if block.caption:
             caption = container.add_paragraph(style=self._ensure_style("Caption"))
             for item in block.caption:

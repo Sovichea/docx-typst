@@ -96,6 +96,7 @@ class TableMixin:
             align=attr(first(tbl_pr, "./w:jc"), "w:val"),
             stroke=stroke,
             keep_together=bool(keep_rows) and all(keep_rows),
+            cell_margins_pt=twips(attr(first(tbl_pr, "./w:tblCellMar/w:left"), "w:w")),
         )
 
 
@@ -136,7 +137,7 @@ def _table_stroke(tbl_pr: Any) -> str | None:
             width = 0.5
         values[edge] = (width, color)
     if not values:
-        return None
+        return "none" if len(borders) else None
     widths = {round(width, 2) for width, _ in values.values()}
     colors = {color for _, color in values.values() if color and color.lower() != "auto"}
     if len(widths) == 1 and len(colors) <= 1:
