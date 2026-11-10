@@ -404,7 +404,7 @@
   place(top + left, dx: dx, dy: dy, body)
 }
 
-#let docx-rule(width: 38pt, height: 3pt, fill: black, before: 0pt, word-before: auto, after: 10pt) = {
+#let docx-rule(width: 38pt, height: 3pt, fill: black, before: 0pt, word-before: auto, after: 10pt, word-after: auto) = {
   block(above: before, below: after, height: height, breakable: false,
     rect(width: width, height: height, fill: fill, stroke: none))
 }

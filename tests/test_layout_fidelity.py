@@ -226,7 +226,7 @@ def test_explicit_rules_use_safe_paragraph_borders(tmp_path: Path) -> None:
   block[#it.body #rect(width: 38pt, height: 3pt, fill: rgb("F7EE16"))]
 }
 = Heading
-#docx-rule(width: 38pt, height: 3pt, fill: rgb("F7EE16"), before: 14.8pt, word-before: 8.7pt, after: 20pt)
+#docx-rule(width: 38pt, height: 3pt, fill: rgb("F7EE16"), before: 14.8pt, word-before: 8.7pt, after: 20pt, word-after: 15pt)
 Body
 ''')
     report = typst_to_docx(source, tmp_path / "out.docx")
@@ -239,7 +239,7 @@ Body
     assert borders[0].get(qn("w:color")) == "F7EE16"
     spacing = borders[0].getparent().getparent().find(qn("w:spacing"))
     assert spacing.get(qn("w:before")) == "174"
-    assert spacing.get(qn("w:after")) == "400"
+    assert spacing.get(qn("w:after")) == "300"
     docx_to_typst(tmp_path / "out.docx", tmp_path / "restored")
     assert '#docx-rule(width: 38pt, height: 3pt' in (tmp_path / "restored/main.typ").read_text(encoding="utf-8")
 
@@ -289,3 +289,18 @@ def test_table_default_alignment_preserves_explicit_paragraph_style(tmp_path: Pa
     table = Document(tmp_path / "out.docx").tables[0]
     from docx.enum.text import WD_ALIGN_PARAGRAPH
     assert table.cell(0, 1).paragraphs[0].alignment == WD_ALIGN_PARAGRAPH.RIGHT
+
+
+def test_inline_artwork_is_not_clipped_by_exact_line_height(tmp_path: Path) -> None:
+    Image.new("RGB", (28, 28), "yellow").save(tmp_path / "logo.png")
+    source = project(tmp_path, '''
+#let docx-styles = ("Logo": (line-spacing-pt: 12pt))
+#docx-para(style: "Logo")[#docx-inline-image("logo.png", width: 28pt)]
+''')
+    typst_to_docx(source, tmp_path / "out.docx")
+    document = Document(tmp_path / "out.docx")
+    from docx.enum.text import WD_LINE_SPACING
+    paragraph = document.paragraphs[0]
+    assert paragraph.paragraph_format.line_spacing_rule != WD_LINE_SPACING.EXACTLY
+    assert document.inline_shapes[0].width.pt == 28
+    assert document.inline_shapes[0].height.pt == 28

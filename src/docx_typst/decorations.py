@@ -12,7 +12,7 @@ def write_rule(writer: Any, container: Any, rule: DecorativeRule) -> None:
     paragraph = container.add_paragraph()
     fmt = paragraph.paragraph_format
     fmt.space_before = Pt(rule.word_before if rule.word_before is not None else rule.before)
-    fmt.space_after = Pt(rule.after)
+    fmt.space_after = Pt(rule.word_after if rule.word_after is not None else rule.after)
     fmt.line_spacing = Pt(1)
     fmt.left_indent = Pt(rule.height / 2)
     fmt.right_indent = Pt(max(0, writer._content_width().pt - rule.width + rule.height / 2))
@@ -28,7 +28,7 @@ def write_rule(writer: Any, container: Any, rule: DecorativeRule) -> None:
     marker = OxmlElement("w:bookmarkStart")
     writer._rule_index = getattr(writer, "_rule_index", 0) + 1
     marker.set(qn("w:id"), str(100000 + writer._rule_index))
-    marker.set(qn("w:name"), f"dxt_rule_{round(rule.width * 20)}_{writer._rule_index}_{round(rule.before * 20)}")
+    marker.set(qn("w:name"), f"dxt_rule_{round(rule.width * 20)}_{writer._rule_index}_{round(rule.before * 20)}_{round(rule.after * 20)}")
     end = OxmlElement("w:bookmarkEnd")
     end.set(qn("w:id"), marker.get(qn("w:id")))
     paragraph._p.extend([marker, end])
@@ -50,5 +50,6 @@ def read_rule(paragraph: Any) -> DecorativeRule | None:
         width=int(markers[0].get(qn("w:name")).removeprefix("dxt_rule_").split("_")[0]) / 20,
         height=int(border.get(qn("w:sz"))) / 8,
         fill="#" + border.get(qn("w:color")),
-        after=int(after[0]) / 20 if after else 0,
+        after=int(parts[3]) / 20 if len(parts) > 3 else (int(after[0]) / 20 if after else 0),
+        word_after=int(after[0]) / 20 if after else 0,
     )

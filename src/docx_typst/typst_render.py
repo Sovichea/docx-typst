@@ -313,6 +313,7 @@ def render_block(block: Block, indent: int = 0) -> str:
         return (f'#docx-rule(width: {format_length(block.width)}, height: {format_length(block.height)}, '
                 f'fill: rgb("{block.fill}"), before: {format_length(block.before)}, '
                 + (f'word-before: {format_length(block.word_before)}, ' if block.word_before is not None else '')
+                + (f'word-after: {format_length(block.word_after)}, ' if block.word_after is not None else '')
                 + f'after: {format_length(block.after)})')
     if isinstance(block, NativeBlock):
         return _indent(block.source, indent)

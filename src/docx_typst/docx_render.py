@@ -7,7 +7,7 @@ from typing import Any
 
 from docx import Document as load_docx
 from docx.enum.style import WD_STYLE_TYPE
-from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK, WD_COLOR_INDEX
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK, WD_COLOR_INDEX, WD_LINE_SPACING
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
@@ -387,6 +387,27 @@ class DocxWriter(FlowSpacingMixin, TableWriterMixin, PageWriterMixin):
                 self._bookmark(paragraph, name, start=True)
         for run in block.runs:
             self._run(paragraph, run)
+        if paragraph._p.xpath(".//wp:inline"):
+            # Exact line boxes clip inline artwork. Retain the authored height
+            # as a minimum and allow Word to contain the complete image.
+            line = paragraph.paragraph_format.line_spacing
+            rule = paragraph.paragraph_format.line_spacing_rule
+            if line is None:
+                line = paragraph.style.paragraph_format.line_spacing
+                rule = paragraph.style.paragraph_format.line_spacing_rule
+            if rule == WD_LINE_SPACING.EXACTLY:
+                paragraph.paragraph_format.line_spacing = line
+                paragraph.paragraph_format.line_spacing_rule = WD_LINE_SPACING.AT_LEAST
+            if not paragraph.text.strip():
+                # An image-only line has no text baseline to preserve.
+                paragraph.paragraph_format.line_spacing = 1.0
+                for image_run in paragraph.runs:
+                    image_run.font.size = Pt(1)
+                mark = OxmlElement("w:rPr")
+                size = OxmlElement("w:sz")
+                size.set(qn("w:val"), "2")
+                mark.append(size)
+                paragraph._p.get_or_add_pPr().append(mark)
         if block.native_cap_height is not None:
             identity = next((name for name in block.bookmarks if name.startswith("dxt_text_")),
                             f"dxt_text_{len(self.source_records)}")

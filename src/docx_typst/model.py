@@ -314,6 +314,7 @@ class HorizontalRule:
 class DecorativeRule:
     before: float = 0.0
     word_before: float | None = None
+    word_after: float | None = None
     width: float = 38.0
     height: float = 3.0
     fill: str = "#F7EE16"

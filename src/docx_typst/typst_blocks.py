@@ -139,7 +139,8 @@ class BlockBuilderMixin:
             return HorizontalRule(stroke=stroke_value(call.arg("stroke")) if "stroke" in call.named else None)
         if name == "docx-rule":
             color = color_to_rgb(call.arg("fill")) or (0, 0, 0)
-            return DecorativeRule(before=length_to_pt(call.arg("before"), 0),
+            return DecorativeRule(word_after=length_to_pt(call.arg("word-after")) if "word-after" in call.named else None,
+                                  before=length_to_pt(call.arg("before"), 0),
                                   word_before=length_to_pt(call.arg("word-before")) if "word-before" in call.named else None,
                                   width=length_to_pt(call.arg("width"), 38),
                                   height=length_to_pt(call.arg("height"), 3),
