@@ -40,6 +40,9 @@ def _counts(document: Any) -> dict[str, int]:
                     counts["headings"] += 1
                 if block.list_kind:
                     counts["list_items"] += 1
+                counts["images"] += sum(
+                    1 for run in block.runs if run.kind == "image"
+                )
             elif isinstance(block, TableBlock):
                 counts["tables"] += 1
                 for row in block.rows:
@@ -72,9 +75,6 @@ def validate(source_docx: str | Path, project: str | Path, out: str | Path | Non
 
     source_counts = _counts(source_document)
     typst_counts = _counts(typst_document)
-    source_counts["images"] = max(
-        source_counts.get("images", 0), typst_counts.get("images", 0)
-    )
 
     differences: list[dict[str, Any]] = []
     for key in ("paragraphs", "headings", "tables", "list_items", "images"):
