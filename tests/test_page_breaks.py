@@ -95,3 +95,22 @@ def test_page_break_before_table_keeps_table_after_break(tmp_path: Path) -> None
     document = Document(output)
     assert len(document.tables) == 1
     assert len(document.element.body.xpath(".//w:br[@w:type='page']")) == 1
+
+
+def test_section_break_has_separate_paragraph_after_justified_text(tmp_path: Path) -> None:
+    project = _project(tmp_path, '''
+#set par(justify: true)
+A justified caption before the orientation change.
+#set page(paper: "a4", flipped: true)
+Landscape content.
+''')
+    output = tmp_path / "section-marker.docx"
+    typst_to_docx(project / "main.typ", output)
+    document = Document(output)
+    caption = next(p for p in document.paragraphs if p.text.startswith("A justified"))
+    assert caption._p.find("./" + qn("w:pPr") + "/" + qn("w:sectPr")) is None
+    marker = caption._p.getnext()
+    assert marker.tag == qn("w:p")
+    assert marker.find("./" + qn("w:pPr") + "/" + qn("w:sectPr")) is not None
+    assert not marker.xpath(".//w:t")
+    assert marker.find("./" + qn("w:pPr") + "/" + qn("w:jc")).get(qn("w:val")) == "left"

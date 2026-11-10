@@ -17,21 +17,22 @@ class PageWriterMixin:
         previous = self.doc.sections[-1]
         changed_width = abs(previous.page_width.pt - block.page.width_pt) > 0.1
         section = self.doc.add_section(WD_SECTION.NEW_PAGE)
-        # add_section creates an empty paragraph to hold the old sectPr. A
-        # Typst page switch has no such blank line; attach it to the preceding
-        # body paragraph so a near-bottom caption is not pushed to a new page.
-        boundary = self.doc.element.body[-2]
-        preceding = boundary.getprevious()
-        section_properties = boundary.find("./" + qn("w:pPr") + "/" + qn("w:sectPr"))
-        if section_properties is not None and preceding is not None:
-            if preceding.tag == qn("w:p"):
-                preceding.get_or_add_pPr().append(section_properties)
-                boundary.getparent().remove(boundary)
-            else:
-                from docx.text.paragraph import Paragraph
-                spacer = Paragraph(boundary, self.doc)
-                spacer.paragraph_format.space_before = spacer.paragraph_format.space_after = Pt(0)
-                spacer.paragraph_format.line_spacing = Pt(1)
+        # Keep the section marker in its own paragraph. Moving sectPr onto a
+        # justified caption makes Word stretch that caption's final line.
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+        from docx.text.paragraph import Paragraph
+        boundary = Paragraph(self.doc.element.body[-2], self.doc)
+        boundary.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        fmt = boundary.paragraph_format
+        fmt.space_before = fmt.space_after = Pt(0)
+        fmt.line_spacing = Pt(1)
+        fmt.keep_with_next = False
+        fmt.keep_together = False
+        mark = OxmlElement("w:rPr")
+        size = OxmlElement("w:sz")
+        size.set(qn("w:val"), "2")
+        mark.append(size)
+        boundary._p.get_or_add_pPr().append(mark)
         self._page(section, block.page)
         header = block.header
         footer = block.footer
