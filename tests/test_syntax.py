@@ -28,6 +28,15 @@ def test_value_parser_reads_generated_style_values() -> None:
     assert length_to_pt(value["before"]) == 12.0
 
 
+def test_value_parser_reads_quoted_dictionary_keys() -> None:
+    value = parse_value(
+        '("Normal": (font: "Calibri", size: 11pt), '
+        '"Heading 1": (font: "Calibri Light", size: 18pt))'
+    )
+    assert value["Normal"]["font"] == "Calibri"
+    assert value["Heading 1"]["size"] == UnitValue(18.0, "pt")
+
+
 def test_value_parser_reads_arrays_and_nested_dicts() -> None:
     value = parse_value("((0, 1, 2, 3), (1, 0, 1, 2))")
     assert value == [[0, 1, 2, 3], [1, 0, 1, 2]]

@@ -511,6 +511,14 @@ class ValueParser:
         positional: list[Any] = []
         is_dict = False
         for part in parts:
+            quoted = re.match(r'^"((?:[^"\\]|\\.)*)"\s*:\s*(.*)$', part, re.S)
+            if quoted:
+                is_dict = True
+                key = ValueParser('"' + quoted.group(1) + '"').parse_string()
+                if not isinstance(key, str):
+                    key = quoted.group(1)
+                named[key] = ValueParser(quoted.group(2)).parse()
+                continue
             match = re.match(r"^([A-Za-z_][\w-]*)\s*:\s*(.*)$", part, re.S)
             if match and not part.lstrip().startswith('"'):
                 is_dict = True
