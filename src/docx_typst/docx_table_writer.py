@@ -42,6 +42,19 @@ class TableWriterMixin:
         ncols = max(1, ncols)
         nrows = len(block.rows)
         table = self._add_table(container, nrows, ncols)
+        if block.cell_margins_pt:
+            tbl_pr = table._tbl.tblPr
+            margins = OxmlElement("w:tblCellMar")
+            for edge in ("top", "left", "bottom", "right"):
+                node = OxmlElement("w:" + edge)
+                node.set(qn("w:w"), str(round(block.cell_margins_pt * 20)))
+                node.set(qn("w:type"), "dxa")
+                margins.append(node)
+            look = tbl_pr.find(qn("w:tblLook"))
+            if look is not None:
+                look.addprevious(margins)
+            else:
+                tbl_pr.append(margins)
         style_name = block.style or "Table Grid"
         try:
             table.style = self.doc.styles[style_name]

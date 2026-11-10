@@ -379,6 +379,12 @@
 
 #let docx-allcaps(body) = upper(body)
 
+#let docx-static(path: none, width: 100%, height: auto, body) = body
+
+#let docx-panel(fill: rgb("#FFF9E7"), inset: 10pt, radius: 5pt, stroke: none, body) = {
+  block(fill: fill, inset: inset, radius: radius, stroke: stroke, width: 100%, body)
+}
+
 #let docx-unsupported(kind, detail: "") = {
   block(
     width: 100%,

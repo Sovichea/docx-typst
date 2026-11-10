@@ -1,0 +1,141 @@
+"""Render ``docx-static`` bodies to images before DOCX export."""
+
+from __future__ import annotations
+
+import hashlib
+from pathlib import Path
+import re
+from typing import Any
+
+from PIL import Image, ImageChops
+import typst
+
+from .typst_syntax import (
+    TypstCall,
+    UnitValue,
+    parse_call_at,
+)
+
+
+def _import_preamble(text: str) -> str:
+    """Copy top-level imports and simple ``#let`` definitions."""
+    lines = text.splitlines()
+    picked: list[str] = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        stripped = line.strip().lstrip("\ufeff")
+        if stripped.startswith("#import") or stripped.startswith("#let "):
+            picked.append(line)
+            # Continue across balanced parentheses.
+            balance = line.count("(") - line.count(")")
+            while balance > 0 and i + 1 < len(lines):
+                i += 1
+                picked.append(lines[i])
+                balance += lines[i].count("(") - lines[i].count(")")
+            i += 1
+            continue
+        if not stripped or stripped.startswith("//"):
+            i += 1
+            continue
+        break
+    return "\n".join(picked)
+
+
+def _width_pt(value: Any, default: float = 465.0) -> float:
+    if isinstance(value, UnitValue):
+        return value.to_pt()
+    if isinstance(value, (int, float)) and value > 10:
+        return float(value)
+    return default
+
+
+def _render_body(
+    project_root: Path,
+    preamble: str,
+    body: str,
+    width_pt: float,
+    target: Path,
+) -> str | None:
+    page_width = max(width_pt, 1200.0)
+    wrapper = project_root / f".docx-static-{target.stem}.typ"
+    wrapper.write_text(
+        "\n".join(
+            [
+                preamble,
+                f'#set page(width: {page_width:.2f}pt, height: 2000pt, margin: 0pt, fill: white)',
+                f"#box(width: {width_pt:.2f}pt)[",
+                body,
+                "]",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    try:
+        typst.compile(
+            str(wrapper),
+            output=str(target),
+            root=str(project_root),
+            format="png",
+            ppi=200,
+        )
+        if not target.is_file():
+            return "Typst did not produce an image"
+        image = Image.open(target).convert("RGB")
+        background = Image.new("RGB", image.size, (255, 255, 255))
+        bbox = ImageChops.difference(image, background).getbbox()
+        if bbox:
+            left, top, right, bottom = bbox
+            image.crop(
+                (
+                    max(0, left - 2),
+                    max(0, top - 2),
+                    min(image.width, right + 2),
+                    min(image.height, bottom + 2),
+                )
+            ).save(target)
+        return None
+    except Exception as exc:
+        return str(exc)[:500]
+    finally:
+        wrapper.unlink(missing_ok=True)
+
+
+def materialize_static_blocks(
+    source: Path, text: str, project_root: Path
+) -> tuple[str, list[dict[str, str]]]:
+    """Replace unrendered ``docx-static`` calls with PNG asset arguments."""
+    preamble = _import_preamble(text)
+    pattern = re.compile(r"#docx-static\s*\(")
+    insertions: list[tuple[int, str]] = []
+    warnings: list[dict[str, str]] = []
+    count = 0
+    for match in pattern.finditer(text):
+        call = parse_call_at(text, match.start() + 1)
+        if call is None or call.body is None:
+            continue
+        if isinstance(call.arg("path"), str):
+            continue
+        count += 1
+        width = _width_pt(call.arg("width"))
+        digest = hashlib.sha256(call.body.text.encode("utf-8")).hexdigest()[:10]
+        relative = f"assets/static/docx-static-{count}-{digest}.png"
+        target = project_root / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        error = _render_body(project_root, preamble, call.body.text, width, target)
+        if error:
+            line_number = text[: match.start()].count("\n") + 1
+            warnings.append(
+                {
+                    "issue": "docx_static_render",
+                    "outcome": "approximated",
+                    "location": f"line {line_number}",
+                    "reason": error,
+                }
+            )
+            continue
+        insertions.append((match.end(), f'path: "{relative}", '))
+    for position, insertion in reversed(insertions):
+        text = text[:position] + insertion + text[position:]
+    return text, warnings

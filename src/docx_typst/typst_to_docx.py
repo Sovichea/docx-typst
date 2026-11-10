@@ -10,7 +10,8 @@ from typing import Any
 
 from . import __version__
 from .docx_render import DocxWriter
-from .typst_parser import parse_typst
+from .static_render import materialize_static_blocks
+from .typst_parser import parse_typst_text
 
 
 def convert(
@@ -24,7 +25,16 @@ def convert(
     if not source.is_file():
         raise FileNotFoundError(source)
     output_path = Path(output)
-    document = parse_typst(source)
+    text = source.read_text(encoding="utf-8")
+    text, static_warnings = materialize_static_blocks(source, text, source.parent)
+    document = parse_typst_text(source, text)
+    for warning in static_warnings:
+        document.warn(
+            str(warning.get("issue", "docx_static")),
+            str(warning.get("outcome", "approximated")),
+            str(warning.get("location", source.name)),
+            reason=str(warning.get("reason", "")),
+        )
     writer = DocxWriter(
         document,
         output_path,

@@ -121,6 +121,8 @@ def page_setup_from_dict(values: dict[str, Any]) -> PageSetup:
         page.width_pt = length_to_pt(width, page.width_pt)
     if height is not None:
         page.height_pt = length_to_pt(height, page.height_pt)
+    if values.get("flipped") is True:
+        page.width_pt, page.height_pt = page.height_pt, page.width_pt
     margin = values.get("margin")
     if isinstance(margin, UnitValue):
         top = right = bottom = left = margin.to_pt()
@@ -158,9 +160,19 @@ def image_from_call(call: TypstCall) -> ImageRef | None:
     width = call.arg("width")
     height = call.arg("height")
     alt = call.arg("alt")
+    width_pt = None
+    width_percent = None
+    if isinstance(width, UnitValue):
+        width_pt = width.to_pt()
+    elif isinstance(width, (int, float)):
+        if 0 < width <= 1:
+            width_percent = float(width)
+        elif width > 1:
+            width_pt = float(width)
     return ImageRef(
         path=path,
-        width_pt=length_to_pt(width) if width is not None else None,
+        width_pt=width_pt,
         height_pt=length_to_pt(height) if height is not None else None,
+        width_percent=width_percent,
         alt=alt if isinstance(alt, str) else None,
     )

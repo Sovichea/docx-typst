@@ -304,6 +304,8 @@ class DocxWriter(TableWriterMixin, PageWriterMixin):
                 self._bookmark(paragraph, name, start=True)
         for run in block.runs:
             self._run(paragraph, run)
+        if block.align is None and any(run.kind == "break" for run in block.runs):
+            paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
         if block.bookmarks:
             for name in reversed(block.bookmarks):
                 self._bookmark(paragraph, name, start=False)
@@ -341,6 +343,9 @@ class DocxWriter(TableWriterMixin, PageWriterMixin):
     # -- runs ------------------------------------------------------------
 
     def _run(self, paragraph: Any, run: Run) -> None:
+        if run.kind == "text" and not run.text.strip():
+            if paragraph._p.xpath("./w:r[last()]/w:br"):
+                return
         if run.kind == "break":
             paragraph.add_run().add_break(WD_BREAK.LINE)
             return
@@ -514,10 +519,21 @@ class DocxWriter(TableWriterMixin, PageWriterMixin):
         kwargs = {}
         if image.width_pt:
             kwargs["width"] = Pt(image.width_pt)
+        elif image.width_percent:
+            content_width = (
+                self.model.page.width_pt
+                - self.model.page.margin_left
+                - self.model.page.margin_right
+            )
+            kwargs["width"] = Pt(content_width * image.width_percent)
         if image.height_pt:
             kwargs["height"] = Pt(image.height_pt)
         try:
             paragraph.add_run().add_picture(str(path), **kwargs)
+            fmt = paragraph.paragraph_format
+            fmt.line_spacing = 1.0
+            fmt.space_before = Pt(0)
+            fmt.space_after = Pt(0)
             self.counts["images"] = self.counts.get("images", 0) + 1
         except Exception as exc:
             self.model.warn(

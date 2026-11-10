@@ -18,8 +18,32 @@ from .model import (
     TableCell,
     UnsupportedBlock,
 )
-from .typst_syntax import Content, TypstCall, length_to_pt
+from .typst_syntax import Content, TypstCall, UnitValue, color_to_rgb, length_to_pt
 from .typst_values import image_from_call, string_value
+
+
+def _relative_widths(columns_value: Any, total: float = 465.0) -> list[float] | None:
+    if not isinstance(columns_value, list):
+        return None
+    values: list[tuple[str, float]] = []
+    fixed = 0.0
+    weights = 0.0
+    for item in columns_value:
+        if isinstance(item, UnitValue) and item.unit == "fr":
+            values.append(("fr", item.value))
+            weights += item.value
+        else:
+            width = length_to_pt(item, 0.0)
+            values.append(("pt", width))
+            fixed += width
+    remaining = max(0.0, total - fixed)
+    result: list[float] = []
+    for kind, value in values:
+        if kind == "pt":
+            result.append(value)
+        else:
+            result.append(remaining * value / weights if weights else remaining)
+    return result
 
 
 class BlockBuilderMixin:
@@ -48,6 +72,10 @@ class BlockBuilderMixin:
             return paragraph
         if name == "docx-image":
             return self._image_block(call, location)
+        if name == "docx-static":
+            return self._static_block(call, location)
+        if name == "docx-panel":
+            return self._panel_block(call, location)
         if name == "docx-table":
             return self._table(call, location)
         if name == "docx-code":
@@ -71,6 +99,8 @@ class BlockBuilderMixin:
             return HorizontalRule()
         if name == "table":
             return self._native_table(call, location)
+        if name == "grid":
+            return self._native_grid(call, location)
         if name == "figure":
             return self._figure(call, location)
         if name == "image":
@@ -171,6 +201,38 @@ class BlockBuilderMixin:
             block.caption = self._parse_blocks(caption.text, location + ":caption")
         return block
 
+    def _static_block(self, call: TypstCall, location: str) -> Block | list[Block] | None:
+        path = string_value(call.arg("path"))
+        if path:
+            width = call.arg("width")
+            height = call.arg("height")
+            return ImageBlock(
+                image=ImageRef(
+                    path=path,
+                    width_pt=length_to_pt(width) if width is not None else None,
+                    height_pt=length_to_pt(height) if height is not None else None,
+                )
+            )
+        if call.body is not None:
+            return self._parse_blocks(call.body.text, location)
+        return None
+
+    def _panel_block(self, call: TypstCall, location: str) -> TableBlock | None:
+        if call.body is None:
+            return None
+        fill = call.arg("fill")
+        color = color_to_rgb(fill) if fill is not None else (255, 249, 231)
+        fill_hex = "#" + "".join(f"{value:02X}" for value in color) if color else "#FFF9E7"
+        inset = length_to_pt(call.arg("inset"), 10.0)
+        blocks = self._parse_blocks(call.body.text, location)
+        return TableBlock(
+            rows=[[TableCell(blocks=blocks, fill=fill_hex)]],
+            columns=[465.0],
+            style="Normal Table",
+            stroke="none",
+            cell_margins_pt=inset,
+        )
+
     def _table(self, call: TypstCall, location: str) -> TableBlock | None:
         columns_value = call.arg("columns", 1)
         if isinstance(columns_value, list):
@@ -263,6 +325,39 @@ class BlockBuilderMixin:
         ncols = len(columns_value) if isinstance(columns_value, list) else int(
             columns_value or 1
         )
+        widths = _relative_widths(columns_value)
+        cells = [item for item in call.positional if isinstance(item, Content)]
+        if not cells:
+            return None
+        rows: list[list[TableCell]] = []
+        for r in range((len(cells) + ncols - 1) // ncols):
+            row: list[TableCell] = []
+            for c in range(ncols):
+                index = r * ncols + c
+                if index >= len(cells):
+                    break
+                blocks = self._parse_blocks(
+                    cells[index].text, f"{location}:cell:{r}:{c}"
+                )
+                for block in blocks:
+                    if isinstance(block, Paragraph) and block.style in {None, "Normal"}:
+                        block.style = "Table Text"
+                row.append(
+                    TableCell(
+                        blocks=blocks,
+                        row=r,
+                        col=c,
+                        fill="#FFF9E7" if r == 0 else None,
+                    )
+                )
+            rows.append(row)
+        return TableBlock(rows=rows, columns=widths or [None] * ncols)
+
+    def _native_grid(self, call: TypstCall, location: str) -> TableBlock | None:
+        columns_value = call.arg("columns", 1)
+        ncols = len(columns_value) if isinstance(columns_value, list) else int(
+            columns_value or 1
+        )
         cells = [item for item in call.positional if isinstance(item, Content)]
         if not cells:
             return None
@@ -283,7 +378,12 @@ class BlockBuilderMixin:
                     )
                 )
             rows.append(row)
-        return TableBlock(rows=rows, columns=[None] * ncols)
+        return TableBlock(
+            rows=rows,
+            columns=[None] * ncols,
+            style="Normal Table",
+            stroke="none",
+        )
 
     def _native_list(
         self, call: TypstCall, location: str, kind: str

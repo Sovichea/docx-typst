@@ -34,7 +34,16 @@ class InlineParser:
         while index < len(text):
             char = text[index]
             if char == "\\" and index + 1 < len(text):
-                buffer.append(text[index + 1])
+                next_char = text[index + 1]
+                if next_char in "\r\n":
+                    flush()
+                    runs.append(Run(kind="break"))
+                    if next_char == "\r" and index + 2 < len(text) and text[index + 2] == "\n":
+                        index += 3
+                    else:
+                        index += 2
+                    continue
+                buffer.append(next_char)
                 index += 2
                 continue
             if char == "*":
@@ -216,6 +225,25 @@ class InlineParser:
             if image is not None:
                 runs.append(Run(kind="image", image=image))
             return True
+        if name == "docx-static":
+            path = call.arg("path")
+            if isinstance(path, str):
+                width = call.arg("width")
+                height = call.arg("height")
+                runs.append(
+                    Run(
+                        kind="image",
+                        image=ImageRef(
+                            path=path,
+                            width_pt=length_to_pt(width) if width is not None else None,
+                            height_pt=length_to_pt(height) if height is not None else None,
+                        ),
+                    )
+                )
+                return True
+            if call.body is not None:
+                runs.extend(self.parse(call.body.text))
+                return True
         if name == "footnote":
             if call.body is None:
                 return False

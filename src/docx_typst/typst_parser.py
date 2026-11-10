@@ -301,9 +301,9 @@ class TypstParser(BlockBuilderMixin):
             )
             if not blocks:
                 self.document.page = page
-                if header_blocks:
+                if "header" in named:
                     self.document.header = header_blocks
-                if footer_blocks:
+                if "footer" in named:
                     self.document.footer = footer_blocks
             else:
                 if blocks and isinstance(blocks[-1], PageBreak):
@@ -313,8 +313,8 @@ class TypstParser(BlockBuilderMixin):
                         page=page,
                         header=header_blocks,
                         footer=footer_blocks,
-                        header_linked=not header_blocks,
-                        footer_linked=not footer_blocks,
+                        header_linked="header" not in named,
+                        footer_linked="footer" not in named,
                     )
                 )
         elif name == "text":
@@ -337,4 +337,9 @@ class TypstParser(BlockBuilderMixin):
 def parse_typst(source: str | Path) -> Document:
     path = Path(source)
     text = path.read_text(encoding="utf-8")
+    return parse_typst_text(path, text)
+
+
+def parse_typst_text(source: str | Path, text: str) -> Document:
+    path = Path(source)
     return TypstParser(path, text).parse()

@@ -143,6 +143,7 @@ class ImageRef:
     path: str
     width_pt: float | None = None
     height_pt: float | None = None
+    width_percent: float | None = None
     alt: str | None = None
     title: str | None = None
     crop: tuple[float, float, float, float] | None = None
@@ -259,6 +260,7 @@ class TableBlock:
     stroke: str | None = None
     autofit: bool = True
     keep_together: bool = False
+    cell_margins_pt: float | None = None
 
 
 @dataclass
