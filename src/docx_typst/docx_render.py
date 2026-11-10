@@ -430,8 +430,13 @@ class DocxWriter(TableWriterMixin, PageWriterMixin):
 
     def _field(self, paragraph: Any, model: Run) -> None:
         field = OxmlElement("w:fldSimple")
-        field.set(qn("w:instr"), f" {model.field or 'PAGE'} ")
-        run = paragraph.add_run("1")
+        name = model.field or "PAGE"
+        padded = name.endswith("_PADDED")
+        if padded:
+            name = name[: -len("_PADDED")]
+        instruction = f' {name} \\# "00" ' if padded else f" {name} "
+        field.set(qn("w:instr"), instruction)
+        run = paragraph.add_run("01" if padded and name == "PAGE" else "1")
         paragraph._p.append(field)
         field.append(run._r)
 

@@ -92,6 +92,13 @@ class BlockBuilderMixin:
                 else string_value(call.positional[0] if call.positional else "")
             )
             return Paragraph(style="Normal", runs=[Run(kind="field", field=field)])
+        if name in {"docx-page-number-padded", "docx-page-count-padded"}:
+            field = (
+                "PAGE_PADDED"
+                if name == "docx-page-number-padded"
+                else "NUMPAGES_PADDED"
+            )
+            return Paragraph(style="Normal", runs=[Run(kind="field", field=field)])
         if name == "docx-unsupported-image":
             return UnsupportedBlock(
                 kind="image", text=string_value(call.arg("alt")) or ""

@@ -227,6 +227,16 @@ class InlineParser:
                 Run(kind="field", field="PAGE" if name == "docx-page-number" else "NUMPAGES")
             )
             return True
+        if name in {"docx-page-number-padded", "docx-page-count-padded"}:
+            runs.append(
+                Run(
+                    kind="field",
+                    field="PAGE_PADDED"
+                    if name == "docx-page-number-padded"
+                    else "NUMPAGES_PADDED",
+                )
+            )
+            return True
         if name == "docx-field":
             runs.append(Run(kind="field", field=value_text(call.positional[0] if call.positional else "")))
             return True

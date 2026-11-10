@@ -114,6 +114,17 @@ class TypstParser(BlockBuilderMixin):
         page = args.get("page")
         if isinstance(page, dict):
             self.document.page = page_setup_from_dict(page)
+        for key, attr_name in (
+            ("header-distance", "header_distance"),
+            ("footer-distance", "footer_distance"),
+        ):
+            value = args.get(key)
+            if value is not None:
+                setattr(
+                    self.document.page,
+                    attr_name,
+                    length_to_pt(value, getattr(self.document.page, attr_name)),
+                )
         header = args.get("header")
         footer = args.get("footer")
         if isinstance(header, Content):

@@ -39,6 +39,8 @@
   page: (:),
   header: none,
   footer: none,
+  header-distance: none,
+  footer-distance: none,
   body,
 ) = {
   set document(title: title, author: author)
@@ -353,6 +355,16 @@
 #let docx-page-count() = context {
   let total = counter(page).final().first()
   [#total]
+}
+
+#let docx-page-number-padded() = context {
+  let current = counter(page).get().first()
+  [#(if current < 10 { "0" + str(current) } else { str(current) })]
+}
+
+#let docx-page-count-padded() = context {
+  let total = counter(page).final().first()
+  [#(if total < 10 { "0" + str(total) } else { str(total) })]
 }
 
 #let docx-field(name) = {
