@@ -304,8 +304,8 @@
       let span = merge-map.at(key, default: (1, 1))
       let fill = fill-map.at(key, default: none)
       let valign = valign-map.at(key, default: "top")
-      let cell-body = if valign == "center" { align(horizon, cell) }
-        else if valign == "bottom" { align(bottom, cell) }
+      let cell-body = if valign == "center" { std.align(horizon, cell) }
+        else if valign == "bottom" { std.align(bottom, cell) }
         else { cell }
       let cell-fill = if fill == none { none } else { rgb(fill) }
       if span.at(0) > 1 or span.at(1) > 1 {

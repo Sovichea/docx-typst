@@ -6,6 +6,7 @@ import subprocess
 
 from docx import Document
 from docx.enum.section import WD_ORIENT, WD_SECTION
+from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Inches
@@ -44,6 +45,7 @@ def test_table_row_count_survives_multiple_merged_rows(tmp_path: Path) -> None:
     shading.set(qn("w:val"), "clear")
     shading.set(qn("w:fill"), "D9EAF7")
     shaded.append(shading)
+    table.cell(0, 1).vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     document.save(source)
 
     project = tmp_path / "project"
@@ -51,6 +53,7 @@ def test_table_row_count_survives_multiple_merged_rows(tmp_path: Path) -> None:
     main = (project / "main.typ").read_text(encoding="utf-8")
     assert "rows: 4," in main
     assert 'fills: ((0, 0, "#D9EAF7"),),' in main
+    assert 'valigns: ((0, 1, "center"),),' in main
     _typst_compile(project)
 
     output = tmp_path / "roundtrip.docx"
@@ -59,6 +62,10 @@ def test_table_row_count_survives_multiple_merged_rows(tmp_path: Path) -> None:
     assert len(result.tables[0].rows) == 4
     assert result.tables[0].cell(2, 0)._tc is result.tables[0].cell(2, 1)._tc
     assert result.tables[0].cell(3, 0).text == "Merged three"
+    assert (
+        result.tables[0].cell(0, 1).vertical_alignment
+        == WD_CELL_VERTICAL_ALIGNMENT.CENTER
+    )
     cell_shading = result.tables[0].cell(0, 0)._tc.tcPr.find(qn("w:shd"))
     assert cell_shading is not None
     assert cell_shading.get(qn("w:fill")) == "D9EAF7"
