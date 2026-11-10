@@ -50,7 +50,7 @@ class TableWriterMixin:
                 )
         if block.align:
             table.alignment = TABLE_ALIGN_MAP.get(block.align)
-        table.autofit = block.autofit
+        table.autofit = block.autofit and not any(block.columns)
         for index, width in enumerate(block.columns):
             if width:
                 table.columns[index].width = Pt(width)

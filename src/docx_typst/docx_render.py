@@ -16,6 +16,7 @@ from docx.shared import Pt, RGBColor
 from .docx_page_writer import PageWriterMixin
 from .docx_table_writer import TableWriterMixin
 from .media_compat import rasterize_for_docx
+from .ooxml import canonical_style_name
 from .model import (
     Block,
     CodeBlock,
@@ -108,13 +109,15 @@ class DocxWriter(TableWriterMixin, PageWriterMixin):
         for name, spec in self.model.styles.items():
             self._ensure_style(name, spec)
         for name, spec in self.model.styles.items():
+            canonical = canonical_style_name(name) or name
             try:
-                style = self.doc.styles[name]
+                style = self.doc.styles[canonical]
             except KeyError:
                 continue
             self._apply_style(style, spec)
 
     def _ensure_style(self, name: str, spec: StyleDef | None = None) -> Any:
+        name = canonical_style_name(name) or name
         try:
             return self.doc.styles[name]
         except KeyError:
