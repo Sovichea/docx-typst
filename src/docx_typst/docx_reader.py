@@ -344,6 +344,7 @@ class BaseDocxReader:
                 "all_caps",
                 "color",
                 "highlight",
+                "tracking",
             ):
                 if key in rpr:
                     setattr(spec, key, rpr[key])

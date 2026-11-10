@@ -150,6 +150,10 @@ class DocxWriter(TableWriterMixin, PageWriterMixin):
             font.size = Pt(spec.size)
         if spec.bold is not None:
             font.bold = spec.bold
+        if spec.weight:
+            font.bold = spec.weight.lower() not in {"regular", "normal", "light"}
+        if spec.tracking is not None:
+            self._character_spacing(style.element, spec.tracking)
         if spec.italic is not None:
             font.italic = spec.italic
         if spec.underline is not None:
@@ -201,6 +205,38 @@ class DocxWriter(TableWriterMixin, PageWriterMixin):
                 anchor.addprevious(outline)
             else:
                 ppr.append(outline)
+
+    def _character_spacing(self, style_element: Any, points: float) -> None:
+        rpr = style_element.get_or_add_rPr()
+        spacing = rpr.find(qn("w:spacing"))
+        if spacing is None:
+            spacing = OxmlElement("w:spacing")
+            try:
+                rpr.insert_element_before(
+                    spacing,
+                    qn("w:w"),
+                    qn("w:kern"),
+                    qn("w:position"),
+                    qn("w:sz"),
+                    qn("w:szCs"),
+                    qn("w:highlight"),
+                    qn("w:u"),
+                    qn("w:effect"),
+                    qn("w:bdr"),
+                    qn("w:shd"),
+                    qn("w:fitText"),
+                    qn("w:vertAlign"),
+                    qn("w:rtl"),
+                    qn("w:cs"),
+                    qn("w:em"),
+                    qn("w:lang"),
+                    qn("w:eastAsianLayout"),
+                    qn("w:specVanish"),
+                    qn("w:oMath"),
+                )
+            except (AttributeError, ValueError):
+                rpr.append(spacing)
+        spacing.set(qn("w:val"), str(round(points * 20)))
 
     # -- blocks ----------------------------------------------------------
 

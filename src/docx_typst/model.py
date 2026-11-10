@@ -73,6 +73,9 @@ class StyleDef:
     highlight: str | None = None
     align: str | None = None
     justify: bool | None = None
+    weight: str | None = None
+    tracking: float | None = None
+    leading: float | None = None
     space_before: float | None = None
     space_after: float | None = None
     line_spacing: float | None = None
@@ -103,6 +106,9 @@ class StyleDef:
             "highlight",
             "align",
             "justify",
+            "weight",
+            "tracking",
+            "leading",
             "space_before",
             "space_after",
             "line_spacing",

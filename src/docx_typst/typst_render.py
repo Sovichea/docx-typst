@@ -51,6 +51,12 @@ def style_entry(name: str, spec: StyleDef) -> str:
         fields.append(f"east-asia-font: {typst_string(spec.east_asia_font)}")
     if spec.size is not None:
         fields.append(f"size: {format_length(spec.size)}")
+    if spec.weight:
+        fields.append(f"weight: {typst_string(spec.weight)}")
+    if spec.tracking is not None:
+        fields.append(f"tracking: {format_length(spec.tracking)}")
+    if spec.leading is not None:
+        fields.append(f"leading: {format_length(spec.leading)}")
     if spec.bold is not None:
         fields.append(f"bold: {_bool(spec.bold)}")
     if spec.italic is not None:

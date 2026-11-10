@@ -58,6 +58,7 @@
   align: auto,
   before: auto,
   after: auto,
+  leading: auto,
   line-spacing: auto,
   line-spacing-pt: auto,
   left-indent: auto,
@@ -73,21 +74,25 @@
   let font = spec.at("font", default: "Calibri")
   let size = spec.at("size", default: 11pt)
   let fill = spec.at("fill", default: black)
-  let weight = if spec.at("bold", default: false) { "bold" } else { "regular" }
+  let weight = spec.at("weight", default: if spec.at("bold", default: false) { "bold" } else { "regular" })
   let font-style = if spec.at("italic", default: false) { "italic" } else { "normal" }
+  let tracking = spec.at("tracking", default: 0pt)
   let align-name = if align != auto { align } else { spec.at("align", default: "left") }
   let before-value = if before != auto { before } else { spec.at("before", default: 0pt) }
   let after-value = if after != auto { after } else { spec.at("after", default: 8pt) }
   let left-value = if left-indent != auto { left-indent } else { spec.at("left-indent", default: 0pt) }
   let right-value = if right-indent != auto { right-indent } else { spec.at("right-indent", default: 0pt) }
   let first-value = if first-line-indent != auto { first-line-indent } else { spec.at("first-line-indent", default: 0pt) }
-  let leading = docx-leading(spec, size, line-spacing, line-spacing-pt)
+  let leading = if leading != auto { leading } else {
+    let style-leading = spec.at("leading", default: none)
+    if style-leading != none { style-leading } else { docx-leading(spec, size, line-spacing, line-spacing-pt) }
+  }
   let justify = spec.at("justify", default: false) or align-name == "justify"
   let break-before = if page-break-before != auto { page-break-before } else { spec.at("page-break-before", default: false) }
   let sticky = if keep-with-next != auto { keep-with-next } else { spec.at("keep-with-next", default: false) }
   let unbreakable = if keep-lines != auto { keep-lines } else { spec.at("keep-lines", default: false) }
   if break-before { pagebreak(weak: true) }
-  set text(font: font, size: size, fill: fill, weight: weight, style: font-style)
+  set text(font: font, size: size, fill: fill, weight: weight, style: font-style, tracking: tracking)
   set par(justify: justify, leading: leading, first-line-indent: calc.max(0pt, first-value))
   let content = body
   if content == [] { content = text("\u{200B}") }
@@ -118,6 +123,7 @@
   align: auto,
   before: auto,
   after: auto,
+  leading: auto,
   line-spacing: auto,
   line-spacing-pt: auto,
   left-indent: auto,
@@ -133,21 +139,25 @@
   let font = spec.at("font", default: "Calibri Light")
   let size = spec.at("size", default: (11pt + level * 2pt))
   let fill = spec.at("fill", default: black)
-  let weight = if spec.at("bold", default: true) { "bold" } else { "regular" }
+  let weight = spec.at("weight", default: if spec.at("bold", default: true) { "bold" } else { "regular" })
   let font-style = if spec.at("italic", default: false) { "italic" } else { "normal" }
+  let tracking = spec.at("tracking", default: 0pt)
   let align-name = if align != auto { align } else { spec.at("align", default: "left") }
   let before-value = if before != auto { before } else { spec.at("before", default: 12pt) }
   let after-value = if after != auto { after } else { spec.at("after", default: 6pt) }
   let left-value = if left-indent != auto { left-indent } else { spec.at("left-indent", default: 0pt) }
   let right-value = if right-indent != auto { right-indent } else { spec.at("right-indent", default: 0pt) }
-  let leading = docx-leading(spec, size, line-spacing, line-spacing-pt)
+  let leading = if leading != auto { leading } else {
+    let style-leading = spec.at("leading", default: none)
+    if style-leading != none { style-leading } else { docx-leading(spec, size, line-spacing, line-spacing-pt) }
+  }
   let break-before = if page-break-before != auto { page-break-before } else { spec.at("page-break-before", default: false) }
   if break-before { pagebreak(weak: true) }
   if bookmarks.len() > 0 {
     for name in bookmarks { docx-anchor(name) }
   }
   let heading-body = heading(level: level, outlined: true, bookmarked: true, {
-    set text(font: font, size: size, fill: fill, weight: weight, style: font-style)
+    set text(font: font, size: size, fill: fill, weight: weight, style: font-style, tracking: tracking)
     set par(leading: leading)
     body
   })
@@ -167,21 +177,27 @@
   num-id: none,
   before: auto,
   after: auto,
+  leading: auto,
   line-spacing: auto,
   line-spacing-pt: auto,
   left-indent: auto,
   first-line-indent: auto,
+  gutter: 4pt,
   body,
 ) = {
   let spec = docx-spec(styles, style)
   let font = spec.at("font", default: "Calibri")
   let size = spec.at("size", default: 11pt)
   let fill = spec.at("fill", default: black)
-  let weight = if spec.at("bold", default: false) { "bold" } else { "regular" }
+  let weight = spec.at("weight", default: if spec.at("bold", default: false) { "bold" } else { "regular" })
   let font-style = if spec.at("italic", default: false) { "italic" } else { "normal" }
+  let tracking = spec.at("tracking", default: 0pt)
   let before-value = if before != auto { before } else { spec.at("before", default: 0pt) }
   let after-value = if after != auto { after } else { spec.at("after", default: 0pt) }
-  let leading = docx-leading(spec, size, line-spacing, line-spacing-pt)
+  let leading = if leading != auto { leading } else {
+    let style-leading = spec.at("leading", default: none)
+    if style-leading != none { style-leading } else { docx-leading(spec, size, line-spacing, line-spacing-pt) }
+  }
   let mark = if marker == auto {
     if kind == "number" { "1." } else { "\u{2022}" }
   } else { marker }
@@ -190,14 +206,14 @@
     -first-line-indent
   } else { 18pt }
   let marker-column = calc.max(0pt, left-value - hanging-value)
-  set text(font: font, size: size, fill: fill, weight: weight, style: font-style)
+  set text(font: font, size: size, fill: fill, weight: weight, style: font-style, tracking: tracking)
   set par(leading: leading)
   block(above: before-value, below: after-value, width: 100%)[
     #pad(left: marker-column)[
       #grid(
         columns: (hanging-value, 1fr),
         align: (right, left),
-        gutter: 4pt,
+        gutter: gutter,
         text[#mark],
         body,
       )

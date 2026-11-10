@@ -523,6 +523,11 @@ class StyleResolver:
         size = pick("./w:sz")
         if size is not None:
             result["size"] = half_points(attr(size, "w:val"))
+        spacing = pick("./w:spacing")
+        if spacing is not None:
+            value = attr(spacing, "w:val")
+            if value:
+                result["tracking"] = twips(value, 0.0)
         color = pick("./w:color")
         if color is not None:
             value = attr(color, "w:val")

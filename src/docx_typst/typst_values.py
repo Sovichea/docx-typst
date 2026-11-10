@@ -45,6 +45,15 @@ def style_from_spec(name: str, spec: dict[str, Any]) -> StyleDef:
     east_asia = spec.get("east-asia-font")
     if isinstance(east_asia, str):
         style.east_asia_font = east_asia
+    weight = spec.get("weight")
+    if isinstance(weight, str):
+        style.weight = weight
+    tracking = spec.get("tracking")
+    if tracking is not None:
+        style.tracking = length_to_pt(tracking)
+    leading = spec.get("leading")
+    if leading is not None:
+        style.leading = length_to_pt(leading)
     size = spec.get("size")
     if size is not None:
         style.size = length_to_pt(size)
