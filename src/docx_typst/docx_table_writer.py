@@ -103,4 +103,12 @@ class TableWriterMixin:
         shading.set(qn("w:val"), "clear")
         shading.set(qn("w:color"), "auto")
         shading.set(qn("w:fill"), color.lstrip("#").upper())
-        tc_pr.append(shading)
+        anchor = None
+        for tag in ("w:noWrap", "w:tcMar", "w:textDirection", "w:tcFitText", "w:vAlign", "w:hideMark"):
+            anchor = tc_pr.find(qn(tag))
+            if anchor is not None:
+                break
+        if anchor is not None:
+            anchor.addprevious(shading)
+        else:
+            tc_pr.append(shading)

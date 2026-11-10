@@ -44,9 +44,20 @@ class PageWriterMixin:
             sect_pr.remove(existing)
         cols = OxmlElement("w:cols")
         cols.set(qn("w:num"), str(max(1, page.columns)))
-        sect_pr.append(cols)
+        doc_grid = sect_pr.find(qn("w:docGrid"))
+        if doc_grid is not None:
+            doc_grid.addprevious(cols)
+        else:
+            sect_pr.append(cols)
+        for existing in sect_pr.findall(qn("w:titlePg")):
+            sect_pr.remove(existing)
         if page.title_page:
-            sect_pr.append(OxmlElement("w:titlePg"))
+            title = OxmlElement("w:titlePg")
+            doc_grid = sect_pr.find(qn("w:docGrid"))
+            if doc_grid is not None:
+                doc_grid.addprevious(title)
+            else:
+                sect_pr.append(title)
 
     def _header_footer_pair(
         self,
