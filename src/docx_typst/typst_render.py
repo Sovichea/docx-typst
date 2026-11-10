@@ -437,11 +437,17 @@ def _render_cell(cell: TableCell) -> str:
     return "\n\n".join(item for item in rendered if item)
 
 
-def render_section(section: SectionBreak) -> str:
+def render_section(
+    section: SectionBreak,
+    header_blocks: list[Block] | None = None,
+    footer_blocks: list[Block] | None = None,
+) -> str:
     page = page_dict(section.page)
     inner = page[1:-1].strip() if page.startswith("(") and page.endswith(")") else page
-    header = "\n\n".join(render_block(block).strip() for block in section.header).strip()
-    footer = "\n\n".join(render_block(block).strip() for block in section.footer).strip()
+    header_content = section.header if header_blocks is None else header_blocks
+    footer_content = section.footer if footer_blocks is None else footer_blocks
+    header = "\n\n".join(render_block(block).strip() for block in header_content).strip()
+    footer = "\n\n".join(render_block(block).strip() for block in footer_content).strip()
     fields = [inner] if inner else []
     if header:
         fields.append(f"header: [\n{_indent(header, 2)}\n]")
@@ -494,7 +500,24 @@ def render_document(document: Document) -> str:
         lines.append("  ],")
     lines.append(")")
     lines.append("")
-    rendered_blocks = [render_block(block) for block in document.blocks]
+    current_header = document.header
+    current_footer = document.footer
+    rendered_blocks: list[str] = []
+    for block in document.blocks:
+        if isinstance(block, SectionBreak):
+            if block.header:
+                current_header = block.header
+            elif not block.header_linked:
+                current_header = []
+            if block.footer:
+                current_footer = block.footer
+            elif not block.footer_linked:
+                current_footer = []
+            rendered_blocks.append(
+                render_section(block, current_header, current_footer)
+            )
+        else:
+            rendered_blocks.append(render_block(block))
     body = "\n\n".join(item for item in rendered_blocks if item.strip())
     lines.append(body.strip())
     lines.append("")

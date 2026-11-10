@@ -66,6 +66,8 @@ def test_section_breaks_and_landscape_page_setup(tmp_path: Path) -> None:
     section.left_margin = Inches(0.5)
     section.header.paragraphs[0].text = "Second header"
     document.add_paragraph("Second section")
+    document.add_section(WD_SECTION.NEW_PAGE)
+    document.add_paragraph("Third section")
     document.save(source)
 
     project = tmp_path / "project"
@@ -73,12 +75,14 @@ def test_section_breaks_and_landscape_page_setup(tmp_path: Path) -> None:
     main = (project / "main.typ").read_text(encoding="utf-8")
     assert "#set page(" in main
     assert "width:" in main
+    assert main.count("Second header") >= 2
     _typst_compile(project)
 
     output = tmp_path / "roundtrip.docx"
     typst_to_docx(project / "main.typ", output)
     result = Document(output)
-    assert len(result.sections) == 2
+    assert len(result.sections) == 3
     assert round(result.sections[1].page_width.pt) == 792
     assert round(result.sections[1].left_margin.pt, 1) == 36.0
     assert result.sections[1].header.paragraphs[0].text == "Second header"
+    assert result.sections[2].header.paragraphs[0].text == "Second header"
