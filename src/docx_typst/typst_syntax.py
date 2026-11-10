@@ -519,14 +519,14 @@ class ValueParser:
                 key = ValueParser('"' + quoted.group(1) + '"').parse_string()
                 if not isinstance(key, str):
                     key = quoted.group(1)
-                named[key] = ValueParser(quoted.group(2)).parse()
+                named[key] = parse_value(quoted.group(2))
                 continue
             match = re.match(r"^([A-Za-z_][\w-]*)\s*:\s*(.*)$", part, re.S)
             if match and not part.lstrip().startswith('"'):
                 is_dict = True
-                named[match.group(1)] = ValueParser(match.group(2)).parse()
+                named[match.group(1)] = parse_value(match.group(2))
             else:
-                positional.append(ValueParser(part).parse())
+                positional.append(parse_value(part))
         if is_dict:
             return named
         if len(positional) == 1 and not stripped.endswith(","):

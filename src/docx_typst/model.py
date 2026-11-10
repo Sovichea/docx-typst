@@ -167,6 +167,7 @@ class Run:
     text: str = ""
     kind: str = "text"  # text, break, page-break, column-break, tab, image, field, footnote, math
     bold: bool | None = None
+    weight: str | None = None
     italic: bool | None = None
     underline: bool | None = None
     strike: bool | None = None
@@ -222,6 +223,7 @@ class Paragraph:
     list_style: str | None = None
     marker: str | None = None
     number_id: int | None = None
+    list_restart: bool = False
     indent_left: float | None = None
     indent_right: float | None = None
     first_line_indent: float | None = None
@@ -267,6 +269,8 @@ class TableBlock:
     space_before: float | None = None
     space_after: float | None = None
     native_text_bounds: bool = False
+    borders: dict[str, str] = field(default_factory=dict)
+    column_weights: list[float] = field(default_factory=list)
 
 
 @dataclass
@@ -301,7 +305,15 @@ class Spacer:
 
 @dataclass
 class HorizontalRule:
-    pass
+    stroke: str | None = None
+
+
+@dataclass
+class DecorativeRule:
+    width: float = 38.0
+    height: float = 3.0
+    fill: str = "#F7EE16"
+    after: float = 10.0
 
 
 @dataclass
@@ -348,6 +360,7 @@ class NativeBlock:
 
 
 Block = Union[
+    DecorativeRule,
     CanvasBlock,
     PositionedBlock,
     NativeBlock,
@@ -419,6 +432,7 @@ class Diagnostic:
 @dataclass
 class Document:
     metadata: Metadata = field(default_factory=Metadata)
+    hyphenate: bool | None = None
     page: PageSetup = field(default_factory=PageSetup)
     blocks: list[Block] = field(default_factory=list)
     styles: dict[str, StyleDef] = field(default_factory=dict)

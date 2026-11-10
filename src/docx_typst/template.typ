@@ -403,6 +403,11 @@
   place(top + left, dx: dx, dy: dy, body)
 }
 
+#let docx-rule(width: 38pt, height: 3pt, fill: black, after: 10pt) = {
+  rect(width: width, height: height, fill: fill, stroke: none)
+  v(after)
+}
+
 #let docx-panel(fill: rgb("#FFF9E7"), inset: 10pt, radius: 5pt, stroke: none, body) = {
   block(fill: fill, inset: inset, radius: radius, stroke: stroke, width: 100%, body)
 }

@@ -19,6 +19,16 @@ def cap_height(font: str, size: float) -> float | None:
         return None
 
 
+@lru_cache(maxsize=128)
+def full_line_height(font: str, size: float) -> float | None:
+    source = (f"#set text(font: {json.dumps(font)}, size: {size}pt)\n"
+              '#context metadata(measure(text(top-edge: "ascender", bottom-edge: "descender")[H]).height / 1pt)')
+    try:
+        return float(json.loads(typst.query(source.encode(), "metadata", field="value", one=True)))
+    except Exception:
+        return None
+
+
 def _line_excess(paragraph: Any) -> float:
     size = font = line = rule = None
     fmt = paragraph.paragraph_format
@@ -31,10 +41,23 @@ def _line_excess(paragraph: Any) -> float:
             line = style.paragraph_format.line_spacing
             rule = style.paragraph_format.line_spacing_rule
         style = style.base_style
-    if not size or not font or line is None or rule != WD_LINE_SPACING.EXACTLY:
+    for run in paragraph.runs:
+        if run.text.strip() and run.font.size and (size is None or run.font.size > size):
+            size = run.font.size
+            font = run.font.name or font
+    if not size or not font or line is None:
         return 0.0
+    from .docx_reader import split_font_face
+    font, _ = split_font_face(font)
     height = cap_height(font, size.pt)
-    return max(0.0, line.pt - height) if height is not None else 0.0
+    if rule == WD_LINE_SPACING.EXACTLY:
+        line_height = line.pt
+    elif rule == WD_LINE_SPACING.MULTIPLE:
+        natural = full_line_height(font, size.pt)
+        line_height = natural * line if natural is not None else 0.0
+    else:
+        return 0.0
+    return max(0.0, line_height - height) if height is not None else 0.0
 
 
 def native_cell_padding(cell: Any, inset: float) -> None:

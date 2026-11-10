@@ -73,10 +73,16 @@ class TableWriterMixin:
             indent.set(qn("w:w"), str(round((block.cell_margins_pt if block.cell_margins_pt is not None else 5.4) * 20)))
             table._tbl.tblPr.insert_element_before(indent, "w:tblBorders", "w:shd", "w:tblLayout", "w:tblCellMar", "w:tblLook")
         if block.stroke is not None:
-            self._table_borders(table, block.stroke)
+            self._table_borders(table, block.stroke, block.borders)
         widths = list(block.columns)
         declared = sum(width or 0 for width in widths)
         available = self._available_table_width(container)
+        if any(block.column_weights):
+            remaining = max(0, available - declared)
+            total_weight = sum(block.column_weights)
+            widths = [remaining * weight / total_weight if weight else width
+                      for width, weight in zip(widths, block.column_weights)]
+            declared = sum(width or 0 for width in widths)
         if declared > available > 0:
             factor = available / declared
             widths = [width * factor if width else None for width in widths]
@@ -157,21 +163,22 @@ class TableWriterMixin:
         self.counts["tables"] = self.counts.get("tables", 0) + 1
         self.counts["table_rows"] = self.counts.get("table_rows", 0) + nrows
 
-    def _table_borders(self, table: Any, stroke: str) -> None:
+    def _table_borders(self, table: Any, stroke: str, overrides: dict[str, str] | None = None) -> None:
         properties = table._tbl.tblPr
         for existing in properties.findall(qn("w:tblBorders")):
             properties.remove(existing)
         borders = OxmlElement("w:tblBorders")
-        width, color = 1.0, (0, 0, 0)
-        for part in split_top_level(stroke, "+"):
-            value = parse_value(part)
-            if isinstance(value, UnitValue):
-                width = value.to_pt()
-            elif color_to_rgb(value) is not None:
-                color = color_to_rgb(value)
         for edge in ("top", "left", "bottom", "right", "insideH", "insideV"):
+            edge_stroke = (overrides or {}).get(edge, stroke)
+            width, color = 1.0, (0, 0, 0)
+            for part in split_top_level(edge_stroke, "+"):
+                value = parse_value(part)
+                if isinstance(value, UnitValue):
+                    width = value.to_pt()
+                elif color_to_rgb(value) is not None:
+                    color = color_to_rgb(value)
             border = OxmlElement("w:" + edge)
-            border.set(qn("w:val"), "nil" if stroke == "none" or width == 0 else "single")
+            border.set(qn("w:val"), "nil" if edge_stroke == "none" or width == 0 else "single")
             border.set(qn("w:sz"), str(round(width * 8)))
             border.set(qn("w:color"), "".join(f"{channel:02X}" for channel in color))
             borders.append(border)

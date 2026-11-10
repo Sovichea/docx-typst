@@ -10,6 +10,7 @@ from .model import (
     Block,
     CodeBlock,
     Document,
+    DecorativeRule,
     PageBreak,
     Paragraph,
     Run,
@@ -44,7 +45,10 @@ class TypstParser(BlockBuilderMixin):
         self._table_settings: dict[str, Any] = {}
         self._table_par_settings: dict[str, Any] = {}
         self._paragraph_spacing = 13.2
+        self._layout_width: float | None = None
         self._table_helpers: dict[str, dict[str, Any]] = {}
+        self._text_helpers: dict[str, dict[str, Any]] = {}
+        self._heading_rules: dict[int, DecorativeRule] = {}
         # Resolve simple content-only wrappers from local imports, such as the
         # template's compact-table. Do not evaluate arbitrary helper code.
         modules = [self.raw_text]
@@ -53,6 +57,11 @@ class TypstParser(BlockBuilderMixin):
             if not imported.startswith("@") and path.is_file():
                 modules.append(path.read_text(encoding="utf-8-sig"))
         for module in modules:
+            for match in re.finditer(r"#let\s+([\w-]+)\(body\)\s*=\s*text\s*\(", module):
+                arguments, _ = balanced(module, match.end() - 1, "(", ")")
+                positional, named = parse_call_arguments(arguments)
+                if len(positional) == 1 and str(positional[0]) == "body":
+                    self._text_helpers[match.group(1)] = named
             for match in re.finditer(r"#let\s+([\w-]+)\(body\)\s*=\s*\{\s*set\s+table\s*\(", module):
                 arguments, end = balanced(module, match.end() - 1, "(", ")")
                 if re.match(r"\s*body\s*\}", module[end:]):
@@ -210,6 +219,8 @@ class TypstParser(BlockBuilderMixin):
                         outline_level=level - 1,
                     )
                 )
+                if level in self._heading_rules:
+                    blocks.append(self._heading_rules[level])
                 i = line_end + 1
                 continue
             item = re.match(r"^([-+])\s+(.*)$", stripped)
@@ -224,6 +235,8 @@ class TypstParser(BlockBuilderMixin):
                         list_style=(
                             "List Bullet" if kind == "bullet" else "List Number"
                         ),
+                        list_restart=not blocks or not isinstance(blocks[-1], Paragraph)
+                        or blocks[-1].list_kind != kind,
                         runs=self.inline.parse(item.group(2)),
                     )
                 )
@@ -235,6 +248,22 @@ class TypstParser(BlockBuilderMixin):
                     i = end
                     continue
             if stripped.startswith("#show"):
+                heading_rule = re.match(r"#show\s+heading\.where\(level:\s*(\d+)\)", stripped)
+                if heading_rule:
+                    from .typst_syntax import parse_call_at, color_to_rgb
+                    end = self._skip_show_rule(text, i + indent)
+                    decoration = re.search(r"#rect\s*\(", text[i:end])
+                    if decoration:
+                        call = parse_call_at(text, i + decoration.start() + 1)
+                        color = color_to_rgb(call.arg("fill")) if call else None
+                        if call and color:
+                            self._heading_rules[int(heading_rule.group(1))] = DecorativeRule(
+                                width=length_to_pt(call.arg("width")), height=length_to_pt(call.arg("height")),
+                                fill="#" + "".join(f"{c:02X}" for c in color))
+                strong = re.match(r"#show\s+strong\s*:\s*set\s+text\s*\(", text[i + indent:])
+                if strong:
+                    inner, _ = balanced(text, i + indent + strong.end() - 1, "(", ")")
+                    self.inline.strong_weight = parse_call_arguments(inner)[1].get("weight", "bold")
                 rule = re.match(r"#show\s+table\s*:\s*set\s+par\s*\(", text[i + indent:])
                 if rule:
                     inner, _ = balanced(text, i + indent + rule.end() - 1, "(", ")")
@@ -357,6 +386,8 @@ class TypstParser(BlockBuilderMixin):
         elif name == "table":
             self._table_settings.update(named)
         elif name == "text":
+            if isinstance(named.get("hyphenate"), bool):
+                self.document.hyphenate = named["hyphenate"]
             font = named.get("font")
             if isinstance(font, str):
                 self.document.default_font = font

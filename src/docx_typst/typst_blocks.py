@@ -10,6 +10,7 @@ from .model import (
     Block,
     CodeBlock,
     HorizontalRule,
+    DecorativeRule,
     ImageBlock,
     ImageRef,
     PageBreak,
@@ -53,6 +54,12 @@ def _relative_widths(
 class BlockBuilderMixin:
     def _call_block(self, call: TypstCall, location: str) -> Block | list[Block] | None:
         name = call.name
+        if name in self._text_helpers and call.body is not None:
+            settings = self._text_helpers[name]
+            runs: list[Run] = []
+            self.inline._call(TypstCall(name="text", named=settings, body=call.body), runs)
+            size = length_to_pt(settings.get("size"), self.document.default_size)
+            return Paragraph(runs=runs, line_spacing=1.0 if size > self.document.default_size else None)
         if name in self._table_helpers and call.body is not None:
             previous = self._table_settings.copy()
             self._table_settings.update(self._table_helpers[name])
@@ -129,7 +136,13 @@ class BlockBuilderMixin:
                 return None
             return Spacer(height_pt=height)
         if name in {"line", "hline"}:
-            return HorizontalRule()
+            return HorizontalRule(stroke=stroke_value(call.arg("stroke")) if "stroke" in call.named else None)
+        if name == "docx-rule":
+            color = color_to_rgb(call.arg("fill")) or (0, 0, 0)
+            return DecorativeRule(width=length_to_pt(call.arg("width"), 38),
+                                  height=length_to_pt(call.arg("height"), 3),
+                                  fill="#" + "".join(f"{c:02X}" for c in color),
+                                  after=length_to_pt(call.arg("after"), 10))
         if name == "table":
             return self._native_table(call, location)
         if name == "grid":
@@ -294,14 +307,22 @@ class BlockBuilderMixin:
         color = color_to_rgb(fill) if fill is not None else (255, 249, 231)
         fill_hex = "#" + "".join(f"{value:02X}" for value in color) if color else "#FFF9E7"
         inset = length_to_pt(call.arg("inset"), 10.0)
+        previous_width = self._layout_width
+        page = self._current_page
+        self._layout_width = (previous_width or (page.width_pt - page.margin_left - page.margin_right)) - inset * 2
         blocks = self._parse_blocks(call.body.text, location)
+        panel_width = self._layout_width + inset * 2
+        self._layout_width = previous_width
         return TableBlock(
             rows=[[TableCell(blocks=blocks, fill=fill_hex)]],
-            columns=[465.0],
+            columns=[panel_width],
             style="Normal Table",
             stroke="none",
             cell_margins_pt=inset,
             space_before=self._paragraph_spacing, space_after=self._paragraph_spacing,
+            native_text_bounds=True,
+            borders={edge: stroke_value(value) for edge, value in call.arg("stroke", {}).items()}
+            if isinstance(call.arg("stroke"), dict) else {},
         )
 
     def _table(self, call: TypstCall, location: str) -> TableBlock | None:
@@ -313,8 +334,11 @@ class BlockBuilderMixin:
             ncols = int(columns_value or 1)
             widths = []
         widths_value = call.arg("widths")
+        column_weights: list[float] = []
         if isinstance(widths_value, list):
-            widths = [length_to_pt(item) for item in widths_value]
+            column_weights = [item.value if isinstance(item, UnitValue) and item.unit == "fr" else 0
+                              for item in widths_value]
+            widths = [None if weight else length_to_pt(item) for item, weight in zip(widths_value, column_weights)]
         cells_value = call.arg("cells")
         cells: list[Content] = []
         if isinstance(cells_value, list):
@@ -393,6 +417,7 @@ class BlockBuilderMixin:
             keep_together=bool(call.arg("keep-together", False)),
             cell_margins_pt=inset,
             native_text_bounds=True,
+            column_weights=column_weights,
         )
 
     def _native_table(self, call: TypstCall, location: str) -> TableBlock | None:
@@ -402,7 +427,9 @@ class BlockBuilderMixin:
             columns_value or 1
         )
         gutter = length_to_pt(call.arg("column-gutter"), 0.0)
-        widths = _relative_widths(columns_value, gutter=gutter)
+        page = self._current_page
+        available = self._layout_width or (page.width_pt - page.margin_left - page.margin_right)
+        widths = _relative_widths(columns_value, total=available, gutter=gutter)
         cells = [item for item in call.positional if isinstance(item, Content)]
         if not cells:
             return None
@@ -449,7 +476,11 @@ class BlockBuilderMixin:
             columns_value or 1
         )
         gutter = length_to_pt(call.arg("column-gutter"), 0.0)
-        widths = _relative_widths(columns_value, gutter=gutter)
+        page = self._current_page
+        available = self._layout_width or (page.width_pt - page.margin_left - page.margin_right)
+        widths = _relative_widths(columns_value, total=available, gutter=gutter)
+        if widths is None:
+            widths = [(available - gutter * (ncols - 1)) / ncols] * ncols
         cells = [item for item in call.positional if isinstance(item, Content)]
         if not cells:
             return None
@@ -466,13 +497,16 @@ class BlockBuilderMixin:
                             cells[index].text, f"{location}:cell:{r}:{c}"
                         ),
                         row=r,
-                        col=c,
+                        col=c * 2 if gutter else c,
                     )
                 )
+                if gutter and c < ncols - 1:
+                    row.append(TableCell(row=r, col=c * 2 + 1))
             rows.append(row)
         return TableBlock(
             rows=rows,
-            columns=widths or [None] * ncols,
+            columns=[value for index, width in enumerate(widths)
+                     for value in ([width, gutter] if gutter and index < ncols - 1 else [width])],
             style="Normal Table",
             stroke="none",
             cell_margins_pt=0.0,
@@ -493,6 +527,7 @@ class BlockBuilderMixin:
                         "List Bullet" if kind == "bullet" else "List Number"
                     )
                     block.style = block.list_style
+                    block.list_restart = not blocks
                 blocks.append(block)
         return blocks
 

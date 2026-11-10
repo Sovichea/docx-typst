@@ -10,6 +10,7 @@ from .model import (
     Block,
     CodeBlock,
     Document,
+    DecorativeRule,
     HorizontalRule,
     ImageBlock,
     NativeBlock,
@@ -194,6 +195,8 @@ def render_run(run: Run) -> str:
     if run.kind == "image":
         return _render_inline_image(run)
     if run.kind == "field":
+        if run.field in {"PAGE_PADDED", "NUMPAGES_PADDED"}:
+            return "#docx-page-number-padded()" if run.field == "PAGE_PADDED" else "#docx-page-count-padded()"
         if run.field == "PAGE":
             return "#docx-page-number()"
         if run.field in {"NUMPAGES", "SECTIONPAGES"}:
@@ -226,6 +229,8 @@ def render_run(run: Run) -> str:
     if run.all_caps:
         content = f"#docx-allcaps[{content}]"
     text_args: list[str] = []
+    if run.weight:
+        text_args.append(f"weight: {typst_string(run.weight)}")
     if run.font:
         text_args.append(f"font: {typst_string(run.font)}")
     if run.size is not None:
@@ -304,6 +309,9 @@ def _render_inline_image(run: Run) -> str:
 
 
 def render_block(block: Block, indent: int = 0) -> str:
+    if isinstance(block, DecorativeRule):
+        return (f'#docx-rule(width: {format_length(block.width)}, height: {format_length(block.height)}, '
+                f'fill: rgb("{block.fill}"), after: {format_length(block.after)})')
     if isinstance(block, NativeBlock):
         return _indent(block.source, indent)
     if isinstance(block, Paragraph):

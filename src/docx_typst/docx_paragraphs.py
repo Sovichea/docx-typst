@@ -12,6 +12,10 @@ from .ooxml import attr, first, local_name, relationship_target
 
 class ParagraphMixin:
     def _read_paragraph(self, paragraph: Any, part: Any) -> list[Block]:
+        from .decorations import read_rule
+        rule = read_rule(paragraph)
+        if rule is not None:
+            return [rule]
         from .source_preservation import read_canvas
         native = read_canvas(self, paragraph)
         if native is not None:
@@ -173,6 +177,8 @@ class ParagraphMixin:
             command = (
                 instruction.strip().split(" ", 1)[0] if instruction.strip() else ""
             ).upper()
+            if command == "PAGEREF" and "_dxt_document_end" in instruction:
+                return [Run(kind="field", field="NUMPAGES_PADDED" if '"00"' in instruction else "NUMPAGES")]
             if command in {"PAGE", "NUMPAGES", "SECTIONPAGES"}:
                 self.counts["fields"] += 1
                 return [Run(kind="field", field=command, text="")]
@@ -333,6 +339,12 @@ class ParagraphMixin:
         walk(paragraph)
         if field is not None:
             runs.extend(finish_field(field))
+        from .docx_reader import split_font_face
+        for run in runs:
+            if run.font:
+                family, weight = split_font_face(run.font)
+                if weight:
+                    run.font, run.weight = family, weight
         return _merge_runs(runs), bookmarks
 
     def _read_run(
@@ -480,6 +492,7 @@ def _merge_runs(runs: list[Run]) -> list[Run]:
 def _same_format(left: Run, right: Run) -> bool:
     fields = (
         "bold",
+        "weight",
         "italic",
         "underline",
         "strike",

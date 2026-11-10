@@ -20,6 +20,7 @@ class InlineParser:
     def __init__(self, document: Document, location: str = "body"):
         self.document = document
         self.location = location
+        self.strong_weight = "bold"
 
     def parse(self, text: str) -> list[Run]:
         runs: list[Run] = []
@@ -52,6 +53,7 @@ class InlineParser:
                     flush()
                     inner = self.parse(text[index + 1 : close])
                     _apply(inner, bold=True)
+                    _apply(inner, weight=self.strong_weight)
                     runs.extend(inner)
                     index = close + 1
                     continue
@@ -170,6 +172,10 @@ class InlineParser:
             kwargs: dict[str, Any] = {}
             if isinstance(font, str):
                 kwargs["font"] = font
+            elif isinstance(font, list) and font:
+                # Preserve the supplied script fallback, rather than silently
+                # dropping the font tuple for Khmer text.
+                kwargs["font"] = font[-1] if any("\u1780" <= c <= "\u17ff" for r in inner for c in r.text) else font[0]
             if size is not None:
                 kwargs["size"] = length_to_pt(size)
             color = color_to_rgb(fill)
@@ -177,6 +183,7 @@ class InlineParser:
                 kwargs["color"] = "#" + "".join(f"{value:02X}" for value in color)
             if isinstance(weight, str):
                 kwargs["bold"] = weight.lower() == "bold"
+                kwargs["weight"] = weight
             if isinstance(style, str):
                 kwargs["italic"] = style.lower() == "italic"
             _apply(inner, **kwargs)
@@ -340,6 +347,7 @@ def _merge(runs: list[Run]) -> list[Run]:
 def _same_format(left: Run, right: Run) -> bool:
     fields = (
         "bold",
+        "weight",
         "italic",
         "underline",
         "strike",

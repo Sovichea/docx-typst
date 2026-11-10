@@ -14,14 +14,23 @@ from .model import Block, PageSetup, SectionBreak
 
 class PageWriterMixin:
     def _section(self, block: SectionBreak) -> None:
+        previous = self.doc.sections[-1]
+        changed_width = abs(previous.page_width.pt - block.page.width_pt) > 0.1
         section = self.doc.add_section(WD_SECTION.NEW_PAGE)
         self._page(section, block.page)
+        header = block.header
+        footer = block.footer
+        header_linked, footer_linked = block.header_linked, block.footer_linked
+        if changed_width and header_linked:
+            header, header_linked = getattr(self, "_active_header", []), False
+        if changed_width and footer_linked:
+            footer, footer_linked = getattr(self, "_active_footer", []), False
         self._header_footer_pair(
             section,
-            block.header,
-            block.footer,
-            header_linked=block.header_linked,
-            footer_linked=block.footer_linked,
+            header,
+            footer,
+            header_linked=header_linked,
+            footer_linked=footer_linked,
         )
         self.counts["sections"] = self.counts.get("sections", 0) + 1
 
@@ -82,6 +91,10 @@ class PageWriterMixin:
         header_linked: bool,
         footer_linked: bool,
     ) -> None:
+        if not header_linked:
+            self._active_header = header_blocks
+        if not footer_linked:
+            self._active_footer = footer_blocks
         for header, blocks, linked in (
             (section.header, header_blocks, header_linked),
             (section.footer, footer_blocks, footer_linked),
@@ -106,7 +119,7 @@ class PageWriterMixin:
         section = self.doc.sections[-1]
         return Pt(max(72.0, section.page_width.pt - section.left_margin.pt - section.right_margin.pt))
 
-    def _bottom_border(self, paragraph: Any) -> None:
+    def _bottom_border(self, paragraph: Any, stroke: str | None = None) -> None:
         ppr = paragraph._p.get_or_add_pPr()
         borders = OxmlElement("w:pBdr")
         bottom = OxmlElement("w:bottom")
@@ -114,5 +127,14 @@ class PageWriterMixin:
         bottom.set(qn("w:sz"), "6")
         bottom.set(qn("w:space"), "1")
         bottom.set(qn("w:color"), "808080")
+        if stroke:
+            from .typst_syntax import UnitValue, parse_value, color_to_rgb, split_top_level
+            for part in split_top_level(stroke, "+"):
+                value = parse_value(part)
+                if isinstance(value, UnitValue):
+                    bottom.set(qn("w:sz"), str(round(value.to_pt() * 8)))
+                color = color_to_rgb(value)
+                if color:
+                    bottom.set(qn("w:color"), "".join(f"{c:02X}" for c in color))
         borders.append(bottom)
         ppr.append(borders)

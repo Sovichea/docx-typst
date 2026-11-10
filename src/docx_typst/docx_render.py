@@ -24,6 +24,7 @@ from .model import (
     CanvasBlock,
     CodeBlock,
     Document,
+    DecorativeRule,
     HorizontalRule,
     ImageBlock,
     PageBreak,
@@ -87,6 +88,11 @@ class DocxWriter(FlowSpacingMixin, TableWriterMixin, PageWriterMixin):
 
     def write(self) -> Document:
         self._metadata()
+        normal = self.model.styles.get("Normal")
+        hyphenate = self.model.hyphenate if self.model.hyphenate is not None else bool(normal and normal.justify)
+        hyphenation = OxmlElement("w:autoHyphenation")
+        hyphenation.set(qn("w:val"), "1" if hyphenate else "0")
+        self.doc.settings.element.append(hyphenation)
         self._styles()
         first = self.doc.sections[0]
         self._page(first, self.model.page)
@@ -98,6 +104,12 @@ class DocxWriter(FlowSpacingMixin, TableWriterMixin, PageWriterMixin):
             footer_linked=not self.model.footer,
         )
         self._blocks(self.doc, self.model.blocks)
+        from docx.text.paragraph import Paragraph as WordParagraph
+        paragraphs = self.doc.element.body.xpath(".//w:p")
+        if paragraphs:
+            last = WordParagraph(paragraphs[-1], self.doc)
+            self._bookmark(last, "_dxt_document_end", start=True)
+            self._bookmark(last, "_dxt_document_end", start=False)
         from .source_preservation import attach_sources
         attach_sources(self)
         self.output.parent.mkdir(parents=True, exist_ok=True)
@@ -155,7 +167,8 @@ class DocxWriter(FlowSpacingMixin, TableWriterMixin, PageWriterMixin):
             font.name = spec.word_font
             font.bold = False
         elif spec.font:
-            font.name = spec.font
+            from .font_weights import weight_face
+            font.name = weight_face(spec.font, spec.weight)
         if spec.word_font or spec.font:
             rpr = style.element.get_or_add_rPr()
             rfonts = rpr.get_or_add_rFonts()
@@ -171,6 +184,8 @@ class DocxWriter(FlowSpacingMixin, TableWriterMixin, PageWriterMixin):
             font.bold = spec.bold
         if spec.weight:
             font.bold = spec.weight.lower() not in {"regular", "normal", "light"}
+            if spec.weight.lower() not in {"bold", "regular", "normal"}:
+                font.bold = False
         if spec.word_font:
             font.bold = None
         if spec.tracking is not None:
@@ -291,7 +306,10 @@ class DocxWriter(FlowSpacingMixin, TableWriterMixin, PageWriterMixin):
                 self._pending_space = 0.0
                 fmt.space_after = Pt(0)
                 fmt.line_spacing = Pt(1)
-                self._bottom_border(paragraph)
+                self._bottom_border(paragraph, block.stroke)
+            elif isinstance(block, DecorativeRule):
+                from .decorations import write_rule
+                write_rule(self, container, block)
             elif isinstance(block, SectionBreak):
                 self._pending_page_break = False
                 self._pending_block_space = 0.0
@@ -334,6 +352,8 @@ class DocxWriter(FlowSpacingMixin, TableWriterMixin, PageWriterMixin):
         style = self._ensure_style(block.style or "Normal")
         paragraph = container.add_paragraph(style=style)
         self._paragraph_format(paragraph, block)
+        from .numbering import apply_numbering
+        apply_numbering(self, paragraph, block)
         block.space_before = original_before
         if block.bookmarks:
             for name in block.bookmarks:
@@ -437,6 +457,14 @@ class DocxWriter(FlowSpacingMixin, TableWriterMixin, PageWriterMixin):
             font.size = Pt(model.size)
         if model.bold is not None:
             font.bold = model.bold
+        if model.weight and model.weight not in {"bold", "regular", "normal"}:
+            from .font_weights import weight_face
+            family = model.font or run._parent.style.font.name or self.model.default_font
+            font.name = weight_face(family, model.weight)
+            font.bold = False
+        if model.font and any("\u1780" <= c <= "\u17ff" for c in model.text):
+            fonts = run._r.get_or_add_rPr().get_or_add_rFonts()
+            fonts.set(qn("w:cs"), model.font)
         if model.italic is not None:
             font.italic = model.italic
         if model.underline is not None:
@@ -497,10 +525,8 @@ class DocxWriter(FlowSpacingMixin, TableWriterMixin, PageWriterMixin):
             hyperlink.set(qn("w:anchor"), model.anchor)
         paragraph._p.append(hyperlink)
         hyperlink.append(run._r)
-        try:
+        if model.style_name == "Hyperlink":
             run.style = "Hyperlink"
-        except (KeyError, AttributeError):
-            pass
 
     def _field(self, paragraph: Any, model: Run) -> None:
         field = OxmlElement("w:fldSimple")
@@ -508,7 +534,8 @@ class DocxWriter(FlowSpacingMixin, TableWriterMixin, PageWriterMixin):
         padded = name.endswith("_PADDED")
         if padded:
             name = name[: -len("_PADDED")]
-        instruction = f' {name} \\# "00" ' if padded else f" {name} "
+        target = "PAGEREF _dxt_document_end" if name == "NUMPAGES" else name
+        instruction = f' {target} \\# "00" ' if padded else f" {target} "
         field.set(qn("w:instr"), instruction)
         run = paragraph.add_run("01" if padded and name == "PAGE" else "1")
         paragraph._p.append(field)
