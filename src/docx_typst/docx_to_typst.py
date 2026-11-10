@@ -33,6 +33,7 @@ def convert(
     source_path = Path(source)
     output_path = Path(output)
     output_path.mkdir(parents=True, exist_ok=True)
+    (output_path / "assets" / "media").mkdir(parents=True, exist_ok=True)
     reader = DocxReader(
         source_path,
         output_path,

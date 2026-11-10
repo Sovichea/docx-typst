@@ -196,7 +196,11 @@ class DocxWriter(TableWriterMixin, PageWriterMixin):
                 ppr.remove(existing)
             outline = OxmlElement("w:outlineLvl")
             outline.set(qn("w:val"), str(spec.outline_level))
-            ppr.append(outline)
+            anchor = ppr.find(qn("w:rPr"))
+            if anchor is not None:
+                anchor.addprevious(outline)
+            else:
+                ppr.append(outline)
 
     # -- blocks ----------------------------------------------------------
 
