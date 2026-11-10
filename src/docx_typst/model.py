@@ -252,6 +252,7 @@ class TableBlock:
     align: str | None = None
     stroke: str | None = None
     autofit: bool = True
+    keep_together: bool = False
 
 
 @dataclass

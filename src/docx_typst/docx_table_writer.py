@@ -68,6 +68,23 @@ class TableWriterMixin:
             header = OxmlElement("w:tblHeader")
             header.set(qn("w:val"), "true")
             tr_pr.append(header)
+        if block.keep_together:
+            for row in table.rows:
+                tr_pr = row._tr.get_or_add_trPr()
+                if tr_pr.find(qn("w:cantSplit")) is not None:
+                    continue
+                cant_split = OxmlElement("w:cantSplit")
+                try:
+                    tr_pr.insert_element_before(
+                        cant_split,
+                        qn("w:trHeight"),
+                        qn("w:tblHeader"),
+                        qn("w:tblCellSpacing"),
+                        qn("w:jc"),
+                        qn("w:hidden"),
+                    )
+                except (AttributeError, ValueError):
+                    tr_pr.append(cant_split)
         for row in block.rows:
             for cell in row:
                 target = table.cell(cell.row, cell.col)

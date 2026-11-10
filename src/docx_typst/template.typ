@@ -275,6 +275,7 @@
   merges: (),
   fills: (),
   valigns: (),
+  keep-together: false,
   style: none,
   align: "left",
   stroke: 0.5pt + luma(180),
@@ -347,7 +348,8 @@
   let all = if header.len() > 0 {
     (table.header(repeat: true, ..header),) + body
   } else { body }
-  table(columns: cols, stroke: stroke, inset: inset, ..all)
+  let result = table(columns: cols, stroke: stroke, inset: inset, ..all)
+  if keep-together { block(breakable: false, result) } else { result }
 }
 
 #let docx-page-number() = context counter(page).display()

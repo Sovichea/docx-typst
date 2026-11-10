@@ -251,6 +251,7 @@ class BlockBuilderMixin:
             style=string_value(call.arg("style")),
             align=string_value(call.arg("align")),
             stroke=string_value(call.arg("stroke")),
+            keep_together=bool(call.arg("keep-together", False)),
         )
 
     def _native_table(self, call: TypstCall, location: str) -> TableBlock | None:

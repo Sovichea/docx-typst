@@ -454,6 +454,8 @@ def render_table(table: TableBlock) -> str:
         lines.append(f"  align: {typst_string(table.align)},")
     if table.stroke:
         lines.append(f"  stroke: {table.stroke},")
+    if table.keep_together:
+        lines.append("  keep-together: true,")
     lines.append("  cells: (")
     for row in table.rows:
         for cell in row:
