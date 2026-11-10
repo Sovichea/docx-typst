@@ -108,8 +108,9 @@ class DocxWriter(FlowSpacingMixin, TableWriterMixin, PageWriterMixin):
         paragraphs = self.doc.element.body.xpath(".//w:p")
         if paragraphs:
             last = WordParagraph(paragraphs[-1], self.doc)
-            self._bookmark(last, "_dxt_document_end", start=True)
-            self._bookmark(last, "_dxt_document_end", start=False)
+            if not self.doc.element.body.xpath('.//w:bookmarkStart[@w:name="_dxt_document_end"]'):
+                self._bookmark(last, "_dxt_document_end", start=True)
+                self._bookmark(last, "_dxt_document_end", start=False)
         from .source_preservation import attach_sources
         attach_sources(self)
         self.output.parent.mkdir(parents=True, exist_ok=True)
@@ -343,6 +344,14 @@ class DocxWriter(FlowSpacingMixin, TableWriterMixin, PageWriterMixin):
         self._pending_space = 0.0
         self._pending_block_space = 0.0
         spec = self.model.styles.get(block.style or "Normal")
+        if weak and spec is not None and spec.word_before is not None:
+            weak = spec.word_before
+        if weak and block.native_cap_height is not None and block.line_spacing_pt is not None:
+            # A standalone native text block starts at the cap edge and ends
+            # at its final baseline. Word includes the whole first line box;
+            # account for that box in the automatic gap, without changing its
+            # font size, line spacing, or explicit authored vertical space.
+            weak = max(0.0, weak - (block.line_spacing_pt - block.native_cap_height))
         original_before = block.space_before
         if pending or weak:
             before = block.space_before
@@ -360,6 +369,13 @@ class DocxWriter(FlowSpacingMixin, TableWriterMixin, PageWriterMixin):
                 self._bookmark(paragraph, name, start=True)
         for run in block.runs:
             self._run(paragraph, run)
+        if block.native_cap_height is not None:
+            identity = next((name for name in block.bookmarks if name.startswith("dxt_text_")),
+                            f"dxt_text_{len(self.source_records)}")
+            if identity not in block.bookmarks:
+                self._bookmark(paragraph, identity, start=True)
+                self._bookmark(paragraph, identity, start=False)
+            self.source_records["text:" + identity] = {"cap": block.native_cap_height}
         if block.align is None and (
             block.heading_level is not None
             or any(run.kind == "break" for run in block.runs)
@@ -375,6 +391,10 @@ class DocxWriter(FlowSpacingMixin, TableWriterMixin, PageWriterMixin):
             self.counts["list_items"] = self.counts.get("list_items", 0) + 1
 
     def _paragraph_format(self, paragraph: Any, block: Paragraph) -> None:
+        if block.align in {"left", "right", "center"} or block.heading_level is not None:
+            suppress = OxmlElement("w:suppressAutoHyphens")
+            suppress.set(qn("w:val"), "1")
+            paragraph._p.get_or_add_pPr().append(suppress)
         if block.align:
             paragraph.alignment = ALIGN_MAP.get(block.align)
         fmt = paragraph.paragraph_format
@@ -625,6 +645,15 @@ class DocxWriter(FlowSpacingMixin, TableWriterMixin, PageWriterMixin):
         if block.align:
             paragraph.alignment = ALIGN_MAP.get(block.align, WD_ALIGN_PARAGRAPH.CENTER)
         self._image(paragraph, block.image)
+        # Image-only paragraphs must not add an invisible body-font descent
+        # below the artwork. The image dimensions themselves remain unchanged.
+        mark = OxmlElement("w:rPr")
+        size = OxmlElement("w:sz")
+        size.set(qn("w:val"), "2")
+        mark.append(size)
+        paragraph._p.get_or_add_pPr().append(mark)
+        for run in paragraph.runs:
+            run.font.size = Pt(1)
         self._pending_block_space = block.space_after or 0.0
         if block.caption:
             caption = container.add_paragraph(style=self._ensure_style("Caption"))

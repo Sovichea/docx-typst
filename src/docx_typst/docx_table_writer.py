@@ -9,7 +9,7 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Pt
 
-from .model import Block, TableBlock
+from .model import Block, Paragraph, TableBlock
 from .typst_syntax import UnitValue, color_to_rgb, parse_value, split_top_level
 
 
@@ -148,6 +148,16 @@ class TableWriterMixin:
                 self._cell_inset = block.cell_margins_pt or 0.0
                 self._pending_space = self._pending_block_space = 0.0
                 self._blocks(target, cell.blocks)
+                if cell.blocks and isinstance(cell.blocks[-1], Paragraph) and cell.blocks[-1].native_flow:
+                    # Typst discards a paragraph's weak trailing gap at a cell
+                    # boundary; Word otherwise counts its inherited SpaceAfter.
+                    target.paragraphs[-1].paragraph_format.space_after = Pt(0)
+                if cell.blocks and isinstance(cell.blocks[-1], TableBlock) and target.paragraphs and not target.paragraphs[-1].text:
+                    # Word requires an end paragraph after a nested table, but
+                    # that marker must not become an extra body-height blank.
+                    marker = target.paragraphs[-1].paragraph_format
+                    marker.space_before = marker.space_after = Pt(0)
+                    marker.line_spacing = Pt(1)
                 if self._pending_space:
                     tail = target.add_paragraph()
                     tail.paragraph_format.space_before = tail.paragraph_format.space_after = Pt(0)

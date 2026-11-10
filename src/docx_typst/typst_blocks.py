@@ -59,7 +59,7 @@ class BlockBuilderMixin:
             runs: list[Run] = []
             self.inline._call(TypstCall(name="text", named=settings, body=call.body), runs)
             size = length_to_pt(settings.get("size"), self.document.default_size)
-            return Paragraph(runs=runs, line_spacing=1.0 if size > self.document.default_size else None)
+            return Paragraph(runs=runs, line_spacing_pt=self._text_line_height(settings.get("font"), size), native_flow=True)
         if name in self._table_helpers and call.body is not None:
             previous = self._table_settings.copy()
             self._table_settings.update(self._table_helpers[name])
@@ -139,7 +139,9 @@ class BlockBuilderMixin:
             return HorizontalRule(stroke=stroke_value(call.arg("stroke")) if "stroke" in call.named else None)
         if name == "docx-rule":
             color = color_to_rgb(call.arg("fill")) or (0, 0, 0)
-            return DecorativeRule(width=length_to_pt(call.arg("width"), 38),
+            return DecorativeRule(before=length_to_pt(call.arg("before"), 0),
+                                  word_before=length_to_pt(call.arg("word-before")) if "word-before" in call.named else None,
+                                  width=length_to_pt(call.arg("width"), 38),
                                   height=length_to_pt(call.arg("height"), 3),
                                   fill="#" + "".join(f"{c:02X}" for c in color),
                                   after=length_to_pt(call.arg("after"), 10))
@@ -221,7 +223,14 @@ class BlockBuilderMixin:
             "highlight",
             "raw",
         }:
-            return Paragraph(style="Normal", runs=self.inline.parse("#" + call.raw))
+            paragraph = Paragraph(style="Normal", runs=self.inline.parse("#" + call.raw), native_flow=True)
+            if name == "text" and "size" in call.named:
+                from .text_bounds import cap_height
+                size = length_to_pt(call.arg("size"))
+                font = call.arg("font") if isinstance(call.arg("font"), str) else self.document.default_font
+                paragraph.line_spacing_pt = self._text_line_height(font, size)
+                paragraph.native_cap_height = cap_height(font, size)
+            return paragraph
         if call.body is not None:
             self.document.warn(
                 "typst_function",
@@ -234,10 +243,21 @@ class BlockBuilderMixin:
             return self._parse_blocks(call.body.text, location)
         return None
 
+    def _text_line_height(self, font: Any, size: float) -> float | None:
+        from .text_bounds import cap_height
+        if not isinstance(font, str):
+            font = self.document.default_font
+        cap = cap_height(font, size)
+        leading = self._paragraph_leading
+        gap = leading.value * size if isinstance(leading, UnitValue) and leading.unit == "em" else length_to_pt(leading)
+        return cap + gap if cap is not None else None
+
     def _paragraph(self, call: TypstCall, location: str) -> Paragraph:
         body = call.body.text if call.body is not None else ""
         style = string_value(call.arg("style")) or "Normal"
         paragraph = Paragraph(style=style, runs=self.inline.parse(body))
+        if "native-cap-height" in call.named:
+            paragraph.native_cap_height = length_to_pt(call.arg("native-cap-height"))
         align = string_value(call.arg("align"))
         if align:
             paragraph.align = align

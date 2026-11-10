@@ -196,3 +196,82 @@ def test_native_table_padding_accounts_for_line_boxes_without_changing_typograph
     assert document.styles["Table Text"].paragraph_format.line_spacing.pt == 14
     docx_to_typst(tmp_path / "out.docx", tmp_path / "restored")
     assert "inset: 4pt" in (tmp_path / "restored/main.typ").read_text(encoding="utf-8")
+
+
+def test_grid_gutters_are_real_empty_columns(tmp_path: Path) -> None:
+    source = project(tmp_path, '#grid(columns: (1fr, 1fr), column-gutter: 24pt, [Left], [Right])')
+    typst_to_docx(source, tmp_path / "out.docx")
+    table = Document(tmp_path / "out.docx").tables[0]
+    assert len(table.columns) == 3
+    assert table.columns[1].width.pt == 24
+    assert [cell.text for cell in table.rows[0].cells] == ["Left", "", "Right"]
+    assert abs(table.columns[0].width.pt - table.columns[2].width.pt) < 0.1
+
+
+def test_independent_enums_restart_without_breaking_contiguous_items(tmp_path: Path) -> None:
+    source = project(tmp_path, '+ First\n+ Second\n\nA new procedure\n\n+ Third\n+ Fourth')
+    typst_to_docx(source, tmp_path / "out.docx")
+    document = Document(tmp_path / "out.docx")
+    items = [p for p in document.paragraphs if p.style.name == "List Number"]
+    ids = [p._p.pPr.numPr.numId.val for p in items]
+    assert ids[0] == ids[1] and ids[2] == ids[3] and ids[0] != ids[2]
+    for identity in set(ids):
+        instance = document.part.numbering_part.element.xpath(f'./w:num[@w:numId="{identity}"]')[0]
+        assert instance.xpath(".//w:startOverride")[0].get(qn("w:val")) == "1"
+
+
+def test_explicit_rules_use_safe_paragraph_borders(tmp_path: Path) -> None:
+    source = project(tmp_path, '''
+#show heading.where(level: 1): it => {
+  block[#it.body #rect(width: 38pt, height: 3pt, fill: rgb("F7EE16"))]
+}
+= Heading
+#docx-rule(width: 38pt, height: 3pt, fill: rgb("F7EE16"), before: 14.8pt, word-before: 8.7pt, after: 20pt)
+Body
+''')
+    report = typst_to_docx(source, tmp_path / "out.docx")
+    document = Document(tmp_path / "out.docx")
+    assert report["counts"].get("images", 0) == 0
+    assert not document.element.body.xpath('.//w:drawing')
+    borders = document.element.body.xpath('.//w:pBdr/w:bottom')
+    assert len(borders) == 1  # Complex heading show rules are not interpreted.
+    assert borders[0].get(qn("w:sz")) == "24"
+    assert borders[0].get(qn("w:color")) == "F7EE16"
+    spacing = borders[0].getparent().getparent().find(qn("w:spacing"))
+    assert spacing.get(qn("w:before")) == "174"
+    assert spacing.get(qn("w:after")) == "400"
+    docx_to_typst(tmp_path / "out.docx", tmp_path / "restored")
+    assert '#docx-rule(width: 38pt, height: 3pt' in (tmp_path / "restored/main.typ").read_text(encoding="utf-8")
+
+
+def test_template_text_helpers_preserve_price_size_and_weight(tmp_path: Path) -> None:
+    (tmp_path / "layout.typ").write_text(
+        '#let price(body) = text(font: "League Spartan", size: 25pt, weight: "semibold", body)', encoding="utf-8")
+    source = project(tmp_path, '#price[USD 12,000]')
+    source.write_text('#import "layout.typ": price\n' + source.read_text(encoding="utf-8"), encoding="utf-8")
+    typst_to_docx(source, tmp_path / "out.docx")
+    run = next(r for p in Document(tmp_path / "out.docx").paragraphs for r in p.runs if "12,000" in r.text)
+    assert run.font.size.pt == 25
+    assert run.font.name == "League Spartan SemiBold"
+    assert run.bold is False
+
+
+def test_total_field_targets_last_logical_page_and_roundtrips(tmp_path: Path) -> None:
+    source = project(tmp_path, '#docx-page-count-padded()\n\nBody')
+    typst_to_docx(source, tmp_path / "out.docx")
+    document = Document(tmp_path / "out.docx")
+    field = document.element.body.xpath(".//w:fldSimple")[0]
+    assert 'PAGEREF _dxt_document_end' in field.get(qn("w:instr"))
+    assert '"00"' in field.get(qn("w:instr"))
+    assert document.element.body.xpath('.//w:bookmarkStart[@w:name="_dxt_document_end"]')
+    docx_to_typst(tmp_path / "out.docx", tmp_path / "restored")
+    assert '#docx-page-count-padded()' in (tmp_path / "restored/main.typ").read_text(encoding="utf-8")
+
+
+def test_panel_accent_keeps_compound_color_expression(tmp_path: Path) -> None:
+    source = project(tmp_path, '#docx-panel(stroke: (left: 3pt + rgb("F7EE16")))[Panel]')
+    typst_to_docx(source, tmp_path / "out.docx")
+    borders = Document(tmp_path / "out.docx").tables[0]._tbl.tblPr.find(qn("w:tblBorders"))
+    assert borders.find(qn("w:left")).get(qn("w:color")) == "F7EE16"
+    assert borders.find(qn("w:left")).get(qn("w:sz")) == "24"
+    assert borders.find(qn("w:right")).get(qn("w:val")) == "nil"

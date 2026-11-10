@@ -311,7 +311,9 @@ def _render_inline_image(run: Run) -> str:
 def render_block(block: Block, indent: int = 0) -> str:
     if isinstance(block, DecorativeRule):
         return (f'#docx-rule(width: {format_length(block.width)}, height: {format_length(block.height)}, '
-                f'fill: rgb("{block.fill}"), after: {format_length(block.after)})')
+                f'fill: rgb("{block.fill}"), before: {format_length(block.before)}, '
+                + (f'word-before: {format_length(block.word_before)}, ' if block.word_before is not None else '')
+                + f'after: {format_length(block.after)})')
     if isinstance(block, NativeBlock):
         return _indent(block.source, indent)
     if isinstance(block, Paragraph):
@@ -373,6 +375,8 @@ def render_paragraph(paragraph: Paragraph) -> str:
 
 def _paragraph_args(paragraph: Paragraph, *, for_list: bool = False) -> list[str]:
     args: list[str] = []
+    if paragraph.native_cap_height is not None:
+        args.append(f"native-cap-height: {format_number(paragraph.native_cap_height)}pt")
     if paragraph.align and not for_list:
         args.append(f"align: {typst_string(paragraph.align)}")
     if paragraph.space_before is not None:

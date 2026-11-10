@@ -25,6 +25,7 @@ from .typst_syntax import (
     length_to_pt,
     parse_call_arguments,
     strip_comments,
+    UnitValue,
 )
 from .typst_values import (
     page_setup_from_dict,
@@ -46,9 +47,10 @@ class TypstParser(BlockBuilderMixin):
         self._table_par_settings: dict[str, Any] = {}
         self._paragraph_spacing = 13.2
         self._layout_width: float | None = None
+        self._paragraph_leading: Any = UnitValue(7, "pt")
+        self._parse_depth = 0
         self._table_helpers: dict[str, dict[str, Any]] = {}
         self._text_helpers: dict[str, dict[str, Any]] = {}
-        self._heading_rules: dict[int, DecorativeRule] = {}
         # Resolve simple content-only wrappers from local imports, such as the
         # template's compact-table. Do not evaluate arbitrary helper code.
         modules = [self.raw_text]
@@ -177,6 +179,10 @@ class TypstParser(BlockBuilderMixin):
     # -- block parsing ---------------------------------------------------
 
     def _parse_blocks(self, text: str, location: str) -> list[Block]:
+        nested = self._parse_depth > 0
+        self._parse_depth += 1
+        outer_text = self.document.default_font, self.document.default_size, self.inline.strong_weight
+        outer_leading = self._paragraph_leading
         outer_table_settings = self._table_settings.copy()
         outer_table_par_settings = self._table_par_settings.copy()
         outer_paragraph_spacing = self._paragraph_spacing
@@ -215,12 +221,11 @@ class TypstParser(BlockBuilderMixin):
                     Paragraph(
                         style=f"Heading {level}",
                         heading_level=level,
+                        native_flow=True,
                         runs=self.inline.parse(heading.group(2)),
                         outline_level=level - 1,
                     )
                 )
-                if level in self._heading_rules:
-                    blocks.append(self._heading_rules[level])
                 i = line_end + 1
                 continue
             item = re.match(r"^([-+])\s+(.*)$", stripped)
@@ -231,6 +236,7 @@ class TypstParser(BlockBuilderMixin):
                     Paragraph(
                         style="List Bullet" if kind == "bullet" else "List Number",
                         list_kind=kind,
+                        native_flow=True,
                         list_level=level,
                         list_style=(
                             "List Bullet" if kind == "bullet" else "List Number"
@@ -242,24 +248,18 @@ class TypstParser(BlockBuilderMixin):
                 )
                 i = line_end + 1
                 continue
+            # Typst state updates affect layout but produce no document text.
+            state_update = re.match(r"#[\w-]+\.update\s*\(", stripped)
+            if state_update:
+                _, end = balanced(text, i + indent + state_update.end() - 1, "(", ")")
+                i = end
+                continue
             if stripped.startswith("#set "):
                 end = self._set_rule(text, i + indent, blocks, location)
                 if end is not None:
                     i = end
                     continue
             if stripped.startswith("#show"):
-                heading_rule = re.match(r"#show\s+heading\.where\(level:\s*(\d+)\)", stripped)
-                if heading_rule:
-                    from .typst_syntax import parse_call_at, color_to_rgb
-                    end = self._skip_show_rule(text, i + indent)
-                    decoration = re.search(r"#rect\s*\(", text[i:end])
-                    if decoration:
-                        call = parse_call_at(text, i + decoration.start() + 1)
-                        color = color_to_rgb(call.arg("fill")) if call else None
-                        if call and color:
-                            self._heading_rules[int(heading_rule.group(1))] = DecorativeRule(
-                                width=length_to_pt(call.arg("width")), height=length_to_pt(call.arg("height")),
-                                fill="#" + "".join(f"{c:02X}" for c in color))
                 strong = re.match(r"#show\s+strong\s*:\s*set\s+text\s*\(", text[i + indent:])
                 if strong:
                     inner, _ = balanced(text, i + indent + strong.end() - 1, "(", ")")
@@ -309,23 +309,30 @@ class TypstParser(BlockBuilderMixin):
             body = text[start:end].strip()
             if body:
                 blocks.append(
-                    Paragraph(style="Normal", runs=self.inline.parse(body))
+                    Paragraph(style="Normal", runs=self.inline.parse(body), native_flow=True)
                 )
             i = end + 1
         self._table_settings = outer_table_settings
         self._table_par_settings = outer_table_par_settings
         self._paragraph_spacing = outer_paragraph_spacing
+        self._paragraph_leading = outer_leading
+        self._parse_depth -= 1
+        if nested:
+            self.document.default_font, self.document.default_size, self.inline.strong_weight = outer_text
         return blocks
 
     def _skip_show_rule(self, text: str, start: int) -> int:
         line_end = text.find("\n", start)
         if line_end < 0:
             line_end = len(text)
-        brace = text.find("{", start, line_end + 1)
-        if brace < 0:
+        openings = [(text.find(char, start, line_end + 1), char, close)
+                    for char, close in (("{", "}"), ("[", "]"))]
+        openings = [item for item in openings if item[0] >= 0]
+        if not openings:
             return line_end + 1
+        brace, opening, closing = min(openings)
         try:
-            _inner, end = balanced(text, brace, "{", "}")
+            _inner, end = balanced(text, brace, opening, closing)
             return end
         except ValueError:
             return line_end + 1
@@ -381,8 +388,11 @@ class TypstParser(BlockBuilderMixin):
                         or named.get("footer") is None,
                     )
                 )
-        elif name == "par" and "spacing" in named:
-            self._paragraph_spacing = length_to_pt(named["spacing"], self._paragraph_spacing)
+        elif name == "par":
+            if "spacing" in named:
+                self._paragraph_spacing = length_to_pt(named["spacing"], self._paragraph_spacing)
+            if "leading" in named:
+                self._paragraph_leading = named["leading"]
         elif name == "table":
             self._table_settings.update(named)
         elif name == "text":

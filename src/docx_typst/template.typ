@@ -75,6 +75,7 @@
   keep-lines: auto,
   page-break-before: auto,
   bookmarks: (),
+  native-cap-height: auto,
   body,
 ) = {
   let spec = docx-spec(styles, style)
@@ -403,9 +404,9 @@
   place(top + left, dx: dx, dy: dy, body)
 }
 
-#let docx-rule(width: 38pt, height: 3pt, fill: black, after: 10pt) = {
-  rect(width: width, height: height, fill: fill, stroke: none)
-  v(after)
+#let docx-rule(width: 38pt, height: 3pt, fill: black, before: 0pt, word-before: auto, after: 10pt) = {
+  block(above: before, below: after, height: height, breakable: false,
+    rect(width: width, height: height, fill: fill, stroke: none))
 }
 
 #let docx-panel(fill: rgb("#FFF9E7"), inset: 10pt, radius: 5pt, stroke: none, body) = {

@@ -160,6 +160,8 @@ class ParagraphMixin:
             heading_level=heading_level,
             outline_level=ppr.get("outline_level"),
             bookmarks=bookmarks,
+            native_cap_height=next((self.native_sources.get("records", {}).get("text:" + name, {}).get("cap")
+                                    for name in bookmarks if name.startswith("dxt_text_")), None),
         )
 
     # -- inline content --------------------------------------------------

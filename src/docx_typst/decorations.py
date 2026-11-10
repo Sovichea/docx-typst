@@ -1,63 +1,54 @@
-"""Native Word vector rules, kept editable and round-trippable."""
+"""Explicit decorative rules represented by ordinary Word paragraph borders."""
 from typing import Any
 
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Pt
-from lxml import etree
 
 from .model import DecorativeRule
-from .positioned import WPS
 
 
 def write_rule(writer: Any, container: Any, rule: DecorativeRule) -> None:
     paragraph = container.add_paragraph()
     fmt = paragraph.paragraph_format
-    fmt.space_before = Pt(0)
+    fmt.space_before = Pt(rule.word_before if rule.word_before is not None else rule.before)
     fmt.space_after = Pt(rule.after)
-    fmt.line_spacing = Pt(rule.height)
+    fmt.line_spacing = Pt(1)
+    fmt.left_indent = Pt(rule.height / 2)
+    fmt.right_indent = Pt(max(0, writer._content_width().pt - rule.width + rule.height / 2))
     fmt.keep_with_next = True
-    inline = OxmlElement("wp:inline")
-    extent = OxmlElement("wp:extent")
-    extent.set("cx", str(round(rule.width * 12700)))
-    extent.set("cy", str(round(rule.height * 12700)))
-    properties = OxmlElement("wp:docPr")
-    properties.set("id", str(writer.doc.part.next_id))
-    properties.set("name", "dxt-heading-rule")
-    properties.set("descr", str(rule.after))
-    graphic = OxmlElement("a:graphic")
-    data = OxmlElement("a:graphicData")
-    data.set("uri", WPS)
-    shape = etree.SubElement(data, f"{{{WPS}}}wsp", nsmap={"wps": WPS})
-    etree.SubElement(shape, f"{{{WPS}}}cNvSpPr")
-    geometry = etree.SubElement(shape, f"{{{WPS}}}spPr")
-    preset = OxmlElement("a:prstGeom")
-    preset.set("prst", "rect")
-    preset.append(OxmlElement("a:avLst"))
-    geometry.append(preset)
-    fill = OxmlElement("a:solidFill")
-    color = OxmlElement("a:srgbClr")
-    color.set("val", rule.fill.lstrip("#"))
-    fill.append(color)
-    geometry.append(fill)
-    line = OxmlElement("a:ln")
-    line.append(OxmlElement("a:noFill"))
-    geometry.append(line)
-    etree.SubElement(shape, f"{{{WPS}}}bodyPr")
-    graphic.append(data)
-    inline.extend([extent, properties, graphic])
-    drawing = OxmlElement("w:drawing")
-    drawing.append(inline)
-    paragraph.add_run()._r.append(drawing)
+    borders = OxmlElement("w:pBdr")
+    bottom = OxmlElement("w:bottom")
+    for key, value in {"val": "single", "sz": str(round(rule.height * 8)),
+                       "space": "0", "color": rule.fill.lstrip("#")}.items():
+        bottom.set(qn("w:" + key), value)
+    borders.append(bottom)
+    paragraph._p.get_or_add_pPr().append(borders)
+    # Bookmarks survive Word saves; no drawing object or unsupported shape XML.
+    marker = OxmlElement("w:bookmarkStart")
+    writer._rule_index = getattr(writer, "_rule_index", 0) + 1
+    marker.set(qn("w:id"), str(100000 + writer._rule_index))
+    marker.set(qn("w:name"), f"dxt_rule_{round(rule.width * 20)}_{writer._rule_index}_{round(rule.before * 20)}")
+    end = OxmlElement("w:bookmarkEnd")
+    end.set(qn("w:id"), marker.get(qn("w:id")))
+    paragraph._p.extend([marker, end])
+    paragraph.add_run().font.size = Pt(1)
 
 
 def read_rule(paragraph: Any) -> DecorativeRule | None:
-    nodes = paragraph.xpath('.//wp:docPr[@name="dxt-heading-rule"]')
-    if not nodes:
+    markers = paragraph.xpath('./w:bookmarkStart[starts-with(@w:name,"dxt_rule_")]')
+    borders = paragraph.xpath('./w:pPr/w:pBdr/w:bottom')
+    if not markers or not borders:
         return None
-    inline = nodes[0].getparent()
-    extent = inline.find(qn("wp:extent"))
-    color = inline.xpath(".//a:solidFill/a:srgbClr")[0].get("val")
-    return DecorativeRule(width=int(extent.get("cx")) / 12700,
-                          height=int(extent.get("cy")) / 12700,
-                          fill="#" + color, after=float(nodes[0].get("descr", "10")))
+    border = borders[0]
+    after = paragraph.xpath('./w:pPr/w:spacing/@w:after')
+    parts = markers[0].get(qn("w:name")).removeprefix("dxt_rule_").split("_")
+    before = paragraph.xpath('./w:pPr/w:spacing/@w:before')
+    return DecorativeRule(
+        before=int(parts[2]) / 20 if len(parts) > 2 else 0,
+        word_before=int(before[0]) / 20 if before else 0,
+        width=int(markers[0].get(qn("w:name")).removeprefix("dxt_rule_").split("_")[0]) / 20,
+        height=int(border.get(qn("w:sz"))) / 8,
+        fill="#" + border.get(qn("w:color")),
+        after=int(after[0]) / 20 if after else 0,
+    )

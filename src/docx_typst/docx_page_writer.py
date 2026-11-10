@@ -17,6 +17,21 @@ class PageWriterMixin:
         previous = self.doc.sections[-1]
         changed_width = abs(previous.page_width.pt - block.page.width_pt) > 0.1
         section = self.doc.add_section(WD_SECTION.NEW_PAGE)
+        # add_section creates an empty paragraph to hold the old sectPr. A
+        # Typst page switch has no such blank line; attach it to the preceding
+        # body paragraph so a near-bottom caption is not pushed to a new page.
+        boundary = self.doc.element.body[-2]
+        preceding = boundary.getprevious()
+        section_properties = boundary.find("./" + qn("w:pPr") + "/" + qn("w:sectPr"))
+        if section_properties is not None and preceding is not None:
+            if preceding.tag == qn("w:p"):
+                preceding.get_or_add_pPr().append(section_properties)
+                boundary.getparent().remove(boundary)
+            else:
+                from docx.text.paragraph import Paragraph
+                spacer = Paragraph(boundary, self.doc)
+                spacer.paragraph_format.space_before = spacer.paragraph_format.space_after = Pt(0)
+                spacer.paragraph_format.line_spacing = Pt(1)
         self._page(section, block.page)
         header = block.header
         footer = block.footer

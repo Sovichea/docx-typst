@@ -238,6 +238,8 @@ class Paragraph:
     outline_level: int | None = None
     bookmarks: list[str] = field(default_factory=list)
     quoted: bool = False
+    native_cap_height: float | None = None
+    native_flow: bool = False
 
     def plain_text(self) -> str:
         return "".join(run.text for run in self.runs if run.kind == "text")
@@ -310,6 +312,8 @@ class HorizontalRule:
 
 @dataclass
 class DecorativeRule:
+    before: float = 0.0
+    word_before: float | None = None
     width: float = 38.0
     height: float = 3.0
     fill: str = "#F7EE16"
