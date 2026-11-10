@@ -70,12 +70,18 @@ class TableWriterMixin:
                 )
         if block.align:
             table.alignment = TABLE_ALIGN_MAP.get(block.align)
-        table.autofit = block.autofit and not any(block.columns)
-        for index, width in enumerate(block.columns):
+        widths = list(block.columns)
+        declared = sum(width or 0 for width in widths)
+        available = self._available_table_width(container)
+        if declared > available > 0:
+            factor = available / declared
+            widths = [width * factor if width else None for width in widths]
+        table.autofit = block.autofit and not any(widths)
+        for index, width in enumerate(widths):
             if width:
                 table.columns[index].width = Pt(width)
-        if any(block.columns):
-            total = sum(width or 0 for width in block.columns)
+        if any(widths):
+            total = sum(width or 0 for width in widths)
             tbl_pr = table._tbl.tblPr
             tbl_w = tbl_pr.find(qn("w:tblW"))
             if tbl_w is None:
@@ -85,10 +91,8 @@ class TableWriterMixin:
             tbl_w.set(qn("w:w"), str(round(total * 20)))
         for row in block.rows:
             for cell in row:
-                if any(block.columns):
-                    width = sum(
-                        block.columns[cell.col : cell.col + cell.colspan]
-                    )
+                if any(widths):
+                    width = sum(widths[cell.col : cell.col + cell.colspan])
                     if width:
                         table.cell(cell.row, cell.col).width = Pt(width)
                 if cell.rowspan > 1 or cell.colspan > 1:
@@ -130,11 +134,22 @@ class TableWriterMixin:
                         cell.valign, WD_CELL_VERTICAL_ALIGNMENT.TOP
                     )
                 self._clear_cell(target)
+                previous_inset = getattr(self, "_cell_inset", 0.0)
+                self._cell_inset = block.cell_margins_pt or 0.0
                 self._blocks(target, cell.blocks)
+                self._cell_inset = previous_inset
                 if not cell.blocks:
                     target.add_paragraph()
         self.counts["tables"] = self.counts.get("tables", 0) + 1
         self.counts["table_rows"] = self.counts.get("table_rows", 0) + nrows
+
+    def _available_table_width(self, container: Any) -> float:
+        if not hasattr(container, "_tc"):
+            return self._content_width().pt
+        width = getattr(container, "width", None)
+        if width is None:
+            return self._content_width().pt
+        return max(18.0, width.pt - 2 * getattr(self, "_cell_inset", 0.0))
 
     def _add_table(self, container: Any, rows: int, cols: int) -> Any:
         try:

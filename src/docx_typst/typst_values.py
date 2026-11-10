@@ -110,8 +110,10 @@ def style_from_spec(name: str, spec: dict[str, Any]) -> StyleDef:
     return style
 
 
-def page_setup_from_dict(values: dict[str, Any]) -> PageSetup:
-    page = PageSetup()
+def page_setup_from_dict(
+    values: dict[str, Any], base: PageSetup | None = None
+) -> PageSetup:
+    page = PageSetup(**base.as_dict()) if base is not None else PageSetup()
     paper = values.get("paper")
     if isinstance(paper, str) and paper.lower() in PAPER_SIZES:
         page.width_pt, page.height_pt = PAPER_SIZES[paper.lower()]
@@ -125,27 +127,28 @@ def page_setup_from_dict(values: dict[str, Any]) -> PageSetup:
         page.width_pt, page.height_pt = page.height_pt, page.width_pt
     margin = values.get("margin")
     if isinstance(margin, UnitValue):
-        top = right = bottom = left = margin.to_pt()
+        page.margin_top = page.margin_right = margin.to_pt()
+        page.margin_bottom = page.margin_left = margin.to_pt()
     elif isinstance(margin, dict):
         x_value = margin.get("x")
         y_value = margin.get("y")
         rest = margin.get("rest")
-        top = length_to_pt(margin.get("top", y_value if y_value is not None else rest), 72.0)
-        bottom = length_to_pt(
-            margin.get("bottom", y_value if y_value is not None else rest), 72.0
+        page.margin_top = length_to_pt(
+            margin.get("top", y_value if y_value is not None else rest),
+            page.margin_top,
         )
-        left = length_to_pt(
-            margin.get("left", x_value if x_value is not None else rest), 72.0
+        page.margin_bottom = length_to_pt(
+            margin.get("bottom", y_value if y_value is not None else rest),
+            page.margin_bottom,
         )
-        right = length_to_pt(
-            margin.get("right", x_value if x_value is not None else rest), 72.0
+        page.margin_left = length_to_pt(
+            margin.get("left", x_value if x_value is not None else rest),
+            page.margin_left,
         )
-    else:
-        top = right = bottom = left = 72.0
-    page.margin_top = top
-    page.margin_right = right
-    page.margin_bottom = bottom
-    page.margin_left = left
+        page.margin_right = length_to_pt(
+            margin.get("right", x_value if x_value is not None else rest),
+            page.margin_right,
+        )
     columns = values.get("columns")
     if isinstance(columns, int):
         page.columns = max(1, columns)

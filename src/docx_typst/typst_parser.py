@@ -39,6 +39,7 @@ class TypstParser(BlockBuilderMixin):
         self.text = strip_comments(text)
         self.document = Document(source=source.name)
         self.inline = InlineParser(self.document, "body")
+        self._current_page = self.document.page
 
     def parse(self) -> Document:
         style_value, style_span = self._style_table()
@@ -60,6 +61,7 @@ class TypstParser(BlockBuilderMixin):
                     content = content[: style_span[0]] + "\n" * (
                         content[: style_span[1]].count("\n")
                     ) + content[style_span[1] :]
+        self._current_page = self.document.page
         self.document.blocks = self._parse_blocks(content, "body")
         if "Normal" not in self.document.styles:
             self.document.styles["Normal"] = StyleDef(
@@ -286,7 +288,8 @@ class TypstParser(BlockBuilderMixin):
             return None
         _positional, named = parse_call_arguments(inner)
         if name == "page":
-            page = page_setup_from_dict(named)
+            page = page_setup_from_dict(named, self._current_page)
+            self._current_page = page
             header = named.get("header")
             footer = named.get("footer")
             header_blocks = (

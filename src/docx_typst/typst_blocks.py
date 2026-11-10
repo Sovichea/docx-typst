@@ -22,7 +22,9 @@ from .typst_syntax import Content, TypstCall, UnitValue, color_to_rgb, length_to
 from .typst_values import image_from_call, string_value
 
 
-def _relative_widths(columns_value: Any, total: float = 465.0) -> list[float] | None:
+def _relative_widths(
+    columns_value: Any, total: float = 465.0, gutter: float = 0.0
+) -> list[float] | None:
     if not isinstance(columns_value, list):
         return None
     values: list[tuple[str, float]] = []
@@ -36,7 +38,7 @@ def _relative_widths(columns_value: Any, total: float = 465.0) -> list[float] | 
             width = length_to_pt(item, 0.0)
             values.append(("pt", width))
             fixed += width
-    remaining = max(0.0, total - fixed)
+    remaining = max(0.0, total - fixed - gutter * max(0, len(values) - 1))
     result: list[float] = []
     for kind, value in values:
         if kind == "pt":
@@ -142,6 +144,21 @@ class BlockBuilderMixin:
             )
         if name == "docx-anchor":
             return None
+        if name in {
+            "text",
+            "link",
+            "strong",
+            "emph",
+            "underline",
+            "strike",
+            "smallcaps",
+            "sub",
+            "super",
+            "upper",
+            "highlight",
+            "raw",
+        }:
+            return Paragraph(style="Normal", runs=self.inline.parse("#" + call.raw))
         if call.body is not None:
             self.document.warn(
                 "typst_function",
@@ -325,7 +342,8 @@ class BlockBuilderMixin:
         ncols = len(columns_value) if isinstance(columns_value, list) else int(
             columns_value or 1
         )
-        widths = _relative_widths(columns_value)
+        gutter = length_to_pt(call.arg("column-gutter"), 0.0)
+        widths = _relative_widths(columns_value, gutter=gutter)
         cells = [item for item in call.positional if isinstance(item, Content)]
         if not cells:
             return None
@@ -358,6 +376,8 @@ class BlockBuilderMixin:
         ncols = len(columns_value) if isinstance(columns_value, list) else int(
             columns_value or 1
         )
+        gutter = length_to_pt(call.arg("column-gutter"), 0.0)
+        widths = _relative_widths(columns_value, gutter=gutter)
         cells = [item for item in call.positional if isinstance(item, Content)]
         if not cells:
             return None
@@ -380,7 +400,7 @@ class BlockBuilderMixin:
             rows.append(row)
         return TableBlock(
             rows=rows,
-            columns=[None] * ncols,
+            columns=widths or [None] * ncols,
             style="Normal Table",
             stroke="none",
         )
