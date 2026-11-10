@@ -61,11 +61,26 @@ def _render_body(
     if target.suffix == ".svg":
         height = f"{height_pt:.6f}pt" if height_pt is not None else "auto"
         wrapper = project_root / f".docx-static-{target.stem}.typ"
+        if height_pt is None:
+            # A diagram may have an intrinsic frame wider than its requested
+            # Word width. Measure that complete frame, then let Word scale it;
+            # clipping at the requested width silently drops drawing content.
+            drawing = [
+                "#set page(width: auto, height: auto, margin: 0pt, fill: none)",
+                "#context {",
+                "let artwork = [", body, "]",
+                "let bounds = measure(artwork)",
+                "block(width: bounds.width, height: bounds.height, clip: false, artwork)",
+                "}",
+            ]
+        else:
+            drawing = [
+                f"#set page(width: {width_pt:.6f}pt, height: {height}, margin: 0pt, fill: none)",
+                f"#block(width: {width_pt:.6f}pt, height: {height}, clip: true)[",
+                body, "]",
+            ]
         wrapper.write_text("\n".join([
-            preamble,
-            f"#set page(width: {width_pt:.6f}pt, height: {height}, margin: 0pt, fill: none)",
-            f"#block(width: {width_pt:.6f}pt, height: {height}, clip: true)[",
-            body, "]",
+            preamble, *drawing,
         ]), encoding="utf-8")
         try:
             # Compile the same bounded frame twice: native vectors plus the

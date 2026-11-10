@@ -82,7 +82,7 @@ Use `docx-static` for content that the static subset cannot rebuild natively, su
 
 On export, the converter copies the file's top-level imports, renders the body at 200 ppi with `typst-py`, trims the surrounding whitespace, writes a PNG under `assets/static/`, and embeds it at the requested width. Pass `height:` when the image must fit a fixed page area. A pre-rendered asset can be supplied with `path:` and is not compiled again.
 
-For vector artwork, use `format: "svg"`. This preserves the requested frame and transparency instead of trimming it. Give absolutely positioned artwork an explicit `width` and `height`:
+For vector artwork, use `format: "svg"`. Explicit `width` and `height` preserve a fixed frame and transparency instead of trimming it. Without a height, the converter preserves the complete intrinsic drawing frame and scales it to the requested Word width. Give absolutely positioned artwork an explicit `width` and `height`:
 
 ```typst
 #docx-static(width: 210mm, height: 297mm, format: "svg")[

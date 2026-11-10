@@ -12,6 +12,7 @@ from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Pt, RGBColor
+from lxml import etree
 
 from .docx_page_writer import PageWriterMixin
 from .docx_table_writer import TableWriterMixin
@@ -563,6 +564,10 @@ class DocxWriter(FlowSpacingMixin, TableWriterMixin, PageWriterMixin):
             kwargs["width"] = Pt(content_width * image.width_percent)
         if image.height_pt:
             kwargs["height"] = Pt(image.height_pt)
+        elif svg_path is not None and "width" in kwargs:
+            viewbox = etree.fromstring(svg_path.read_bytes()).get("viewBox", "").replace(",", " ").split()
+            if len(viewbox) == 4 and float(viewbox[2]) > 0:
+                kwargs["height"] = Pt(kwargs["width"].pt * float(viewbox[3]) / float(viewbox[2]))
         try:
             picture = paragraph.add_run().add_picture(str(path), **kwargs)
             if svg_path is not None:
