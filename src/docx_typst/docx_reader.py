@@ -34,6 +34,34 @@ from .ooxml import (
 )
 
 
+FONT_WEIGHT_SUFFIXES = {
+    "thin": "thin",
+    "hairline": "thin",
+    "extralight": "extralight",
+    "ultralight": "extralight",
+    "light": "light",
+    "regular": "regular",
+    "medium": "medium",
+    "semibold": "semibold",
+    "demibold": "semibold",
+    "bold": "bold",
+    "extrabold": "extrabold",
+    "ultrabold": "extrabold",
+    "black": "black",
+    "heavy": "black",
+}
+
+
+def split_font_face(face: str) -> tuple[str, str | None]:
+    """Split a Word face name such as ``DM Sans SemiBold`` into family and weight."""
+    family, separator, suffix = face.rpartition(" ")
+    if separator and family:
+        weight = FONT_WEIGHT_SUFFIXES.get(suffix.replace("-", "").replace(" ", "").lower())
+        if weight:
+            return family, weight
+    return face, None
+
+
 class BaseDocxReader:
     """Own the package, style cascade, section flow, and report state."""
 
@@ -58,6 +86,8 @@ class BaseDocxReader:
         self._current_part: Any = self.docx.part
         self._default_font = "Calibri"
         self._default_size = 11.0
+        from .source_preservation import load_sources
+        self.native_sources = load_sources(self)
 
     # -- package parts ---------------------------------------------------
 
@@ -366,6 +396,13 @@ class BaseDocxReader:
                     setattr(spec, key, ppr[key])
             if spec.align == "justify":
                 spec.justify = True
+            if spec.font:
+                face = spec.font
+                family, weight = split_font_face(face)
+                if weight:
+                    spec.font = family
+                    spec.word_font = face
+                    spec.weight = spec.weight or weight
             styles[name] = spec
         if "Normal" not in styles:
             styles["Normal"] = StyleDef(

@@ -12,6 +12,7 @@ from .model import (
     Document,
     HorizontalRule,
     ImageBlock,
+    NativeBlock,
     PageBreak,
     PageSetup,
     Paragraph,
@@ -282,6 +283,8 @@ def _render_spaces(line: str) -> str:
 
 def _render_inline_image(run: Run) -> str:
     image = run.image
+    if image is not None and image.typst_source:
+        return image.typst_source
     if image is None or not image.path:
         label = (image.alt if image is not None else None) or "image"
         return f"#docx-unsupported-image({typst_string(label)})"
@@ -301,6 +304,8 @@ def _render_inline_image(run: Run) -> str:
 
 
 def render_block(block: Block, indent: int = 0) -> str:
+    if isinstance(block, NativeBlock):
+        return _indent(block.source, indent)
     if isinstance(block, Paragraph):
         return _indent(render_paragraph(block), indent)
     if isinstance(block, TableBlock):
@@ -396,6 +401,8 @@ def _paragraph_args(paragraph: Paragraph, *, for_list: bool = False) -> list[str
 
 def render_image(block: ImageBlock) -> str:
     image = block.image
+    if image.typst_source:
+        return image.typst_source
     if not image.path:
         return f"#docx-unsupported-image({typst_string(image.alt or 'image')})"
     args = [typst_string(image.path)]

@@ -42,6 +42,10 @@ def convert(
     )
     document = reader.read()
     main_text = render_document(document)
+    imports = reader.native_sources.get("imports", "")
+    if imports:
+        main_text = main_text.replace('#import "template.typ": *',
+                                      '#import "template.typ": *\n' + imports, 1)
     (output_path / "main.typ").write_text(main_text, encoding="utf-8")
 
     template_source = (

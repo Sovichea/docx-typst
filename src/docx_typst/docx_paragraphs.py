@@ -12,6 +12,11 @@ from .ooxml import attr, first, local_name, relationship_target
 
 class ParagraphMixin:
     def _read_paragraph(self, paragraph: Any, part: Any) -> list[Block]:
+        from .source_preservation import read_canvas
+        native = read_canvas(self, paragraph)
+        if native is not None:
+            self.counts["canvases"] += 1
+            return [native]
         style_id = self.styles.paragraph_style_id(paragraph)
         style_name = self.styles.style_name(style_id) or "Normal"
         self.used_style_ids.add(style_id)

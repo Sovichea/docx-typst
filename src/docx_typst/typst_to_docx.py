@@ -41,6 +41,7 @@ def convert(
         base=source.parent,
         reference=Path(reference) if reference else None,
     )
+    writer.source_text = source.read_text(encoding="utf-8")
     writer.write()
 
     status = "completed"

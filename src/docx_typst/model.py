@@ -30,8 +30,9 @@ class PageSetup:
     orientation: str = "portrait"
     columns: int = 1
     title_page: bool = False
+    page_number_start: int | None = None
 
-    def as_dict(self) -> dict[str, float | int | str | bool]:
+    def as_dict(self) -> dict[str, float | int | str | bool | None]:
         return {
             "width_pt": self.width_pt,
             "height_pt": self.height_pt,
@@ -44,6 +45,7 @@ class PageSetup:
             "orientation": self.orientation,
             "columns": self.columns,
             "title_page": self.title_page,
+            "page_number_start": self.page_number_start,
         }
 
 
@@ -151,6 +153,7 @@ class ImageRef:
     floating: bool = False
     align: str | None = None
     source_part: str | None = None
+    typst_source: str | None = None
 
 
 @dataclass
@@ -313,7 +316,36 @@ class UnsupportedBlock:
     text: str = ""
 
 
+@dataclass
+class PositionedBlock:
+    blocks: list["Block"] = field(default_factory=list)
+    x: float = 0.0
+    y: float = 0.0
+    width: float = 100.0
+    height: float = 100.0
+    style: str | None = None
+    align: str = "left"
+    source: str = ""
+
+
+@dataclass
+class CanvasBlock:
+    blocks: list["Block"] = field(default_factory=list)
+    width: float = 595.2756
+    height: float = 841.8898
+    identifier: str = "canvas"
+    source: str = ""
+
+
+@dataclass
+class NativeBlock:
+    source: str = ""
+
+
 Block = Union[
+    CanvasBlock,
+    PositionedBlock,
+    NativeBlock,
     Paragraph,
     TableBlock,
     ImageBlock,

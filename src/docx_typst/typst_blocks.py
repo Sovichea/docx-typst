@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import Any
 
 from .model import (
+    CanvasBlock,
+    PositionedBlock,
     Block,
     CodeBlock,
     HorizontalRule,
@@ -51,6 +53,24 @@ def _relative_widths(
 class BlockBuilderMixin:
     def _call_block(self, call: TypstCall, location: str) -> Block | list[Block] | None:
         name = call.name
+        if name == "docx-canvas" and call.body is not None:
+            return CanvasBlock(
+                blocks=self._parse_blocks(call.body.text, location + ":canvas"),
+                width=length_to_pt(call.arg("width"), 595.2756),
+                height=length_to_pt(call.arg("height"), 841.8898),
+                identifier=string_value(call.arg("id")) or "canvas",
+                source="#" + call.raw,
+            )
+        if name == "docx-position" and call.body is not None:
+            return PositionedBlock(
+                blocks=self._parse_blocks(call.body.text, location + ":position"),
+                x=length_to_pt(call.arg("dx")), y=length_to_pt(call.arg("dy")),
+                width=length_to_pt(call.arg("width"), 100.0),
+                height=length_to_pt(call.arg("height"), 100.0),
+                style=string_value(call.arg("style")),
+                align=string_value(call.arg("align")) or "left",
+                source="#" + call.raw,
+            )
         if name == "docx-para":
             return self._paragraph(call, location)
         if name == "docx-heading":
@@ -74,6 +94,11 @@ class BlockBuilderMixin:
             return paragraph
         if name == "docx-image":
             return self._image_block(call, location)
+        if name == "docx-inline-image":
+            image = image_from_call(call)
+            if image is not None:
+                return ImageBlock(image=image, align=image.align or "left")
+            return None
         if name == "docx-static":
             return self._static_block(call, location)
         if name == "docx-panel":
@@ -142,6 +167,13 @@ class BlockBuilderMixin:
             return UnsupportedBlock(
                 kind="image", text=string_value(call.arg("alt")) or ""
             )
+        if name == "docx-page-start":
+            value = call.positional[0] if call.positional else 1
+            try:
+                self._pending_page_number_start = int(value)
+            except (TypeError, ValueError):
+                self._pending_page_number_start = 1
+            return None
         if name == "docx-anchor":
             return None
         if name in {
@@ -228,6 +260,7 @@ class BlockBuilderMixin:
                     path=path,
                     width_pt=length_to_pt(width) if width is not None else None,
                     height_pt=length_to_pt(height) if height is not None else None,
+                    typst_source="#" + call.raw,
                 )
             )
         if call.body is not None:
@@ -294,6 +327,7 @@ class BlockBuilderMixin:
                 if isinstance(item, list) and len(item) >= 3 and isinstance(item[2], str):
                     valign_map[(int(item[0]), int(item[1]))] = item[2]
         header_rows = int(call.arg("header-rows", 0) or 0)
+        inset = length_to_pt(call.arg("inset"), 5.0)
         rows_value = call.arg("rows")
         if isinstance(rows_value, int) and rows_value > 0:
             nrows = rows_value
@@ -335,6 +369,7 @@ class BlockBuilderMixin:
             align=string_value(call.arg("align")),
             stroke=string_value(call.arg("stroke")),
             keep_together=bool(call.arg("keep-together", False)),
+            cell_margins_pt=inset,
         )
 
     def _native_table(self, call: TypstCall, location: str) -> TableBlock | None:

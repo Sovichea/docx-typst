@@ -186,6 +186,7 @@ class MediaMixin:
             floating=floating,
             align="center" if floating else None,
             source_part=partname,
+            typst_source=self.native_sources.get("records", {}).get(alt, {}).get("source"),
         )
 
     def _read_vml(self, pict: Any, part: Any) -> list[Run]:

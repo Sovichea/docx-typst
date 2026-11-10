@@ -19,6 +19,7 @@ from .media_compat import rasterize_for_docx
 from .ooxml import canonical_style_name
 from .model import (
     Block,
+    CanvasBlock,
     CodeBlock,
     Document,
     HorizontalRule,
@@ -78,6 +79,8 @@ class DocxWriter(TableWriterMixin, PageWriterMixin):
         self.counts: dict[str, int] = {}
         self._pending_space = 0.0
         self._pending_page_break = False
+        self.source_text = ""
+        self.source_records: dict[str, Any] = {}
 
     def write(self) -> Document:
         self._metadata()
@@ -88,10 +91,12 @@ class DocxWriter(TableWriterMixin, PageWriterMixin):
             first,
             self.model.header,
             self.model.footer,
-            header_linked=False,
-            footer_linked=False,
+            header_linked=not self.model.header,
+            footer_linked=not self.model.footer,
         )
         self._blocks(self.doc, self.model.blocks)
+        from .source_preservation import attach_sources
+        attach_sources(self)
         self.output.parent.mkdir(parents=True, exist_ok=True)
         self.doc.save(self.output)
         return self.model
@@ -259,6 +264,9 @@ class DocxWriter(TableWriterMixin, PageWriterMixin):
         for block in blocks:
             if isinstance(block, Paragraph):
                 self._paragraph(container, block)
+            elif isinstance(block, CanvasBlock):
+                from .positioned import write_canvas
+                write_canvas(self, container, block)
             elif isinstance(block, TableBlock):
                 self._flush_page_break(container)
                 self._table(container, block)
@@ -528,6 +536,7 @@ class DocxWriter(TableWriterMixin, PageWriterMixin):
                 reason=f"asset not found: {path}",
             )
             return
+        svg_path = path if path.suffix.lower() == ".svg" else None
         path, warning = rasterize_for_docx(path)
         if warning:
             self.model.warn(
@@ -552,7 +561,13 @@ class DocxWriter(TableWriterMixin, PageWriterMixin):
         if image.height_pt:
             kwargs["height"] = Pt(image.height_pt)
         try:
-            paragraph.add_run().add_picture(str(path), **kwargs)
+            picture = paragraph.add_run().add_picture(str(path), **kwargs)
+            if svg_path is not None:
+                from .positioned import embed_svg
+                embed_svg(paragraph.part, picture._inline, svg_path)
+            if image.typst_source:
+                from .source_preservation import record_static
+                record_static(self, picture._inline, image)
             fmt = paragraph.paragraph_format
             fmt.line_spacing = 1.0
             fmt.space_before = Pt(0)
