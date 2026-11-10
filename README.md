@@ -17,7 +17,7 @@ Python 3.10 through 3.13 is supported.
 python -m pip install docx-typst
 ```
 
-The Python package performs conversion. Install the [Typst CLI](https://typst.app/) separately to compile generated projects to PDF. SVG-to-DOCX export needs Cairo native libraries through `cairosvg`; install the optional extra when needed:
+The Python package performs conversion and installs `typst` (typst-py), which rasterizes `docx-static` content during export. Install the [Typst CLI](https://typst.app/) separately only to compile generated projects to PDF from the command line. SVG-to-DOCX export needs Cairo native libraries through `cairosvg`; install the optional extra when needed:
 
 ```console
 python -m pip install "docx-typst[svg]"
@@ -70,6 +70,29 @@ typst compile working/main.typ working/preview.pdf
 typst-to-docx working/main.typ --output revised.docx
 ```
 
+### Static diagrams and panels
+
+Use `docx-static` for content that the static subset cannot rebuild natively, such as CeTZ diagrams, timeliney charts, Fletcher decorations, or a designed cover:
+
+```typst
+#docx-static(width: 550pt)[
+  #cetz.canvas(...)
+]
+```
+
+On export, the converter copies the file's top-level imports, renders the body at 200 ppi with `typst-py`, trims the surrounding whitespace, writes a PNG under `assets/static/`, and embeds it at the requested width. Pass `height:` when the image must fit a fixed page area. A pre-rendered asset can be supplied with `path:` and is not compiled again.
+
+Use `docx-panel` for a shaded callout that should stay editable:
+
+```typst
+#docx-panel(fill: rgb("#FFF9E7"), inset: 12pt, radius: 6pt)[
+  *Billing dependency:* matching a ward stock total does not prove that the
+  correct patient was charged.
+]
+```
+
+In Typst it is a native block. In Word it becomes a single-cell shaded table, so the text, emphasis, and line breaks remain editable. The rendered body uses imports and assets resolved from the source file's directory. If rendering fails, the diagnostic is recorded in `conversion_report.json` and the body is exported as editable fallback content instead.
+
 ## Start a Typst document
 
 ```console
@@ -106,7 +129,7 @@ docx-typst to-docx document-typst/main.typ --output document.docx
 | Footnotes | Rendered as Typst footnotes with a warning | Exported as superscript note text |
 | Comments, charts, SmartArt, OLE, equations | Reported as unsupported or approximated | Not reconstructed |
 
-The reverse converter also accepts a small native Typst subset, including headings, paragraphs, bullet and numbered lists, `*strong*`, `_emphasis_`, inline code, `#link`, `#image`, `#figure`, and `#table`.
+The reverse converter also accepts a small native Typst subset, including headings, paragraphs, bullet and numbered lists, `*strong*`, `_emphasis_`, inline code, `#link`, `#image`, `#figure`, `#table`, and `#grid`. Two authoring helpers extend it: `#docx-static` rasterizes arbitrary Typst content to a PNG at export time, and `#docx-panel` becomes an editable shaded table cell.
 
 ## Reports and validation
 
@@ -135,6 +158,7 @@ backward = typst_to_docx("report-typst/main.typ", "report-roundtrip.docx")
 - Fonts are referenced by name but are not embedded or installed. Missing fonts change wrapping and alignment.
 - Floating shapes, text boxes, comments, tracked-change metadata, native chart data, SmartArt, OLE objects, and complex equations are outside the supported subset.
 - The reverse converter does not evaluate arbitrary Typst code. Unsupported constructs are reported and, when possible, flattened into readable content.
+- Content inside `docx-static` is embedded as an image and is not editable in Word. Keep the Typst source for later revisions.
 - Review `conversion_report.json` and inspect important pages before using the output for delivery.
 
 ## Development

@@ -35,12 +35,14 @@ Character styles are resolved into their effective formatting. The style name it
 
 Supported table properties:
 
-- rectangular grids and explicit column widths
+- rectangular grids, `#table`, and `#grid`
+- explicit column widths and fixed/fractional tracks
+- column gutters used when calculating fractional widths
 - header rows that repeat across pages
 - horizontal and vertical cell merges
 - cell background fills
 - common single-line borders
-- nested block content inside cells
+- nested block content inside cells, scaled to the cell's content width
 
 Complex border combinations, diagonal borders, table indentation, and conditional table-style formatting are approximated with a default table grid.
 
@@ -79,18 +81,44 @@ The converter emits diagnostics rather than silently dropping difficult content:
 - floating shape geometry and text wrapping
 - complex image masks and crops
 
+## Static diagrams and panels
+
+`#docx-static` embeds arbitrary Typst content as an image during DOCX export:
+
+```typst
+#docx-static(width: 550pt)[
+  #cetz.canvas(...)
+]
+```
+
+The body is compiled at 200 ppi with `typst-py`, cropped to its visible bounds, written under `assets/static/`, and embedded at the requested size. Top-level imports in the source file are copied into the render wrapper so the body can use CeTZ, timeliney, Fletcher, or project helper modules. Pass `height:` to reserve a fixed area, or `path:` to reuse a pre-rendered image.
+
+`#docx-panel` keeps callout text editable while reproducing a shaded block:
+
+```typst
+#docx-panel(fill: rgb("#FFF9E7"), inset: 12pt, radius: 6pt)[
+  Panel text stays editable.
+]
+```
+
+Typst renders it as a native block. DOCX receives a single-cell table with the same fill and inset, so text, emphasis, and line breaks survive. Rounded corners are approximated by the table cell shape.
+
+If a static body cannot be rendered, the command records a diagnostic and exports the body as editable fallback content.
+
 ## Static Typst accepted by the reverse converter
 
 `typst-to-docx` does not evaluate arbitrary Typst. It understands:
 
 - `#docx-para`, `#docx-heading`, `#docx-item`, `#docx-image`, `#docx-table`
 - `#docx-code`, `#docx-page-number`, `#docx-page-count`, `#docx-field`
+- `#docx-static` and `#docx-panel`
 - native headings (`= Heading`), bullet lists (`- item`), and numbered lists (`+ item`)
+- `#table(...)` and `#grid(...)`
 - `*strong*`, `_emphasis_`, inline code, and escaped markup
 - `#link("url")[...]`, `#underline[...]`, `#strike[...]`, `#super[...]`, `#sub[...]`, `#smallcaps[...]`
 - `#text(font: ..., size: ..., fill: ..., weight: ..., style: ...)[...]`
 - `#highlight(fill: ...)[...]`, `#raw("...")`
-- `#image(...)`, `#figure(image(...), caption: [...])`, and `#table(...)`
+- `#image(...)` and `#figure(image(...), caption: [...])`
 - `#set page(...)`, `#set document(...)`, and `#set text(...)`
 - `#show: docx-document.with(...)`
 
