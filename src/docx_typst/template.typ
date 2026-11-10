@@ -236,6 +236,7 @@
 
 #let docx-table(
   columns: 1,
+  rows: auto,
   widths: auto,
   header-rows: 0,
   merges: (),
@@ -247,7 +248,7 @@
 ) = {
   let ncols = if type(columns) == int { columns } else { columns.len() }
   let cols = if widths == auto { columns } else { widths }
-  let nrows = calc.ceil(cells.len() / ncols)
+  let nrows = if rows == auto { calc.ceil(cells.len() / ncols) } else { rows }
   let merge-map = (:)
   let covered = (:)
   for m in merges {

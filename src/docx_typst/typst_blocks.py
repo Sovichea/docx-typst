@@ -189,7 +189,13 @@ class BlockBuilderMixin:
                             if (r, c) != (row, col):
                                 covered.add((r, c))
         header_rows = int(call.arg("header-rows", 0) or 0)
-        nrows = (len(cells) + ncols - 1) // ncols
+        rows_value = call.arg("rows")
+        if isinstance(rows_value, int) and rows_value > 0:
+            nrows = rows_value
+        else:
+            nrows = (len(cells) + ncols - 1) // ncols
+            for (row, _col), (rowspan, _colspan) in merge_map.items():
+                nrows = max(nrows, row + rowspan)
         rows: list[list[TableCell]] = []
         index = 0
         for r in range(nrows):

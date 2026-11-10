@@ -142,10 +142,12 @@ def page_dict(page: PageSetup, *, include_header_footer: bool = False) -> str:
 
 
 def _standard_size(width: float, height: float) -> str | None:
+    # Typst's paper names are portrait; landscape pages must carry explicit
+    # dimensions so the orientation survives the roundtrip.
+    if width > height:
+        return None
     for name, (w, h) in STANDARD_SIZES.items():
         if abs(width - w) < 1.0 and abs(height - h) < 1.0:
-            return name
-        if abs(width - h) < 1.0 and abs(height - w) < 1.0:
             return name
     return None
 
@@ -398,6 +400,7 @@ def render_table(table: TableBlock) -> str:
     column_count = max(1, column_count)
     lines = ["#docx-table("]
     lines.append(f"  columns: {column_count},")
+    lines.append(f"  rows: {len(table.rows)},")
     if table.columns and any(width is not None for width in table.columns):
         widths = [format_length(width) if width is not None else "1fr" for width in table.columns]
         if len(widths) < column_count:
