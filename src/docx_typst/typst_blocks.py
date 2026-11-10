@@ -343,6 +343,7 @@ class BlockBuilderMixin:
             style="Normal Table",
             stroke="none",
             cell_margins_pt=inset,
+            keep_together=True,
             space_before=self._paragraph_spacing, space_after=self._paragraph_spacing,
             native_text_bounds=True,
             borders={edge: stroke_value(value) for edge, value in call.arg("stroke", {}).items()}
