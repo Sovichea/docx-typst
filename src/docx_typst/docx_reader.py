@@ -285,10 +285,19 @@ class BaseDocxReader:
             pass
         start_type = "nextPage"
         try:
-            start_type = str(section.start_type)
+            value = section.start_type
+            name = getattr(value, "name", None) or str(value)
+            mapping = {
+                "NEW_PAGE": "nextPage",
+                "CONTINUOUS": "continuous",
+                "EVEN_PAGE": "evenPage",
+                "ODD_PAGE": "oddPage",
+                "NEW_COLUMN": "newColumn",
+            }
+            start_type = mapping.get(name, name)
         except Exception:
             pass
-        if start_type not in {"NEW_PAGE", "nextPage"}:
+        if start_type != "nextPage":
             self.warn(
                 "section_start_type",
                 "approximated",
