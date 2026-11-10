@@ -256,6 +256,9 @@ class BlockBuilderMixin:
         body = call.body.text if call.body is not None else ""
         style = string_value(call.arg("style")) or "Normal"
         paragraph = Paragraph(style=style, runs=self.inline.parse(body))
+        style_spec = self.document.styles.get(style)
+        if style_spec is not None:
+            paragraph.align = style_spec.align
         if "native-cap-height" in call.named:
             paragraph.native_cap_height = length_to_pt(call.arg("native-cap-height"))
         align = string_value(call.arg("align"))

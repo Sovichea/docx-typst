@@ -46,9 +46,9 @@ Body text.
     typst_to_docx(project / "main.typ", output)
     document = Document(output)
 
-    assert not document.element.body.xpath(".//w:br[@w:type='page']")
+    assert len(document.element.body.xpath(".//w:br[@w:type='page']")) == 1
     heading = next(p for p in document.paragraphs if p.text == "Second Page Heading")
-    assert heading.paragraph_format.page_break_before is True
+    assert heading.paragraph_format.page_break_before is not True
     assert heading.alignment == WD_ALIGN_PARAGRAPH.LEFT
 
 
@@ -94,4 +94,4 @@ def test_page_break_before_table_keeps_table_after_break(tmp_path: Path) -> None
     typst_to_docx(project / "main.typ", output)
     document = Document(output)
     assert len(document.tables) == 1
-    assert not document.element.body.xpath(".//w:br[@w:type='page']")
+    assert len(document.element.body.xpath(".//w:br[@w:type='page']")) == 1

@@ -316,10 +316,8 @@ class DocxWriter(FlowSpacingMixin, TableWriterMixin, PageWriterMixin):
                 self._pending_block_space = 0.0
                 self._section(block)
             elif isinstance(block, UnsupportedBlock):
+                self._flush_page_break(container)
                 paragraph = container.add_paragraph()
-                if self._pending_page_break:
-                    paragraph.paragraph_format.page_break_before = True
-                    self._pending_page_break = False
                 run = paragraph.add_run(f"[Unsupported content: {block.kind}]")
                 run.italic = True
                 self.counts["unsupported"] = self.counts.get("unsupported", 0) + 1
@@ -327,18 +325,21 @@ class DocxWriter(FlowSpacingMixin, TableWriterMixin, PageWriterMixin):
     def _flush_page_break(self, container: Any) -> None:
         if not self._pending_page_break:
             return
-        paragraph = container.add_paragraph()
-        fmt = paragraph.paragraph_format
-        fmt.page_break_before = True
-        fmt.space_before = Pt(0)
-        fmt.space_after = Pt(0)
-        fmt.line_spacing = Pt(1)
+        # A real break character remains visible and deletable with Word's
+        # formatting marks. Keep imported pageBreakBefore formatting separate.
+        paragraphs = container.paragraphs
+        if paragraphs and (paragraphs[-1]._p.getnext() is None or paragraphs[-1]._p.getnext().tag == qn("w:sectPr")):
+            paragraph = paragraphs[-1]
+        else:
+            paragraph = container.add_paragraph()
+            paragraph.paragraph_format.space_before = Pt(0)
+            paragraph.paragraph_format.space_after = Pt(0)
+            paragraph.paragraph_format.line_spacing = Pt(1)
+        paragraph.add_run().add_break(WD_BREAK.PAGE)
         self._pending_page_break = False
 
     def _paragraph(self, container: Any, block: Paragraph) -> None:
-        if self._pending_page_break:
-            block.page_break_before = True
-            self._pending_page_break = False
+        self._flush_page_break(container)
         pending = self._pending_space
         weak = self._pending_block_space
         self._pending_space = 0.0
@@ -635,12 +636,10 @@ class DocxWriter(FlowSpacingMixin, TableWriterMixin, PageWriterMixin):
             )
 
     def _image_block(self, container: Any, block: ImageBlock) -> None:
+        self._flush_page_break(container)
         paragraph = container.add_paragraph()
         paragraph.paragraph_format.line_spacing = 1.0
         paragraph.paragraph_format.space_after = Pt(0)
-        if self._pending_page_break:
-            paragraph.paragraph_format.page_break_before = True
-            self._pending_page_break = False
         paragraph.paragraph_format.space_before = Pt(self._block_gap(paragraph._p, container, block.space_before))
         if block.align:
             paragraph.alignment = ALIGN_MAP.get(block.align, WD_ALIGN_PARAGRAPH.CENTER)
@@ -663,10 +662,8 @@ class DocxWriter(FlowSpacingMixin, TableWriterMixin, PageWriterMixin):
                         self._run(caption, run)
 
     def _code(self, container: Any, block: CodeBlock) -> None:
+        self._flush_page_break(container)
         paragraph = container.add_paragraph()
-        if self._pending_page_break:
-            paragraph.paragraph_format.page_break_before = True
-            self._pending_page_break = False
         if self._pending_space:
             paragraph.paragraph_format.space_before = Pt(self._pending_space)
             self._pending_space = 0.0

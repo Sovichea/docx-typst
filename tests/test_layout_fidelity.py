@@ -275,3 +275,17 @@ def test_panel_accent_keeps_compound_color_expression(tmp_path: Path) -> None:
     assert borders.find(qn("w:left")).get(qn("w:color")) == "F7EE16"
     assert borders.find(qn("w:left")).get(qn("w:sz")) == "24"
     assert borders.find(qn("w:right")).get(qn("w:val")) == "nil"
+
+
+def test_table_default_alignment_preserves_explicit_paragraph_style(tmp_path: Path) -> None:
+    source = project(tmp_path, '''
+#let docx-styles = ("Right Label": (align: "right", size: 8pt))
+#show: docx-document.with(styles: docx-styles)
+#show table: set par(justify: false)
+#table(columns: (100pt, 100pt),
+  [Left], [#docx-para(style: "Right Label")[Right]])
+''')
+    typst_to_docx(source, tmp_path / "out.docx")
+    table = Document(tmp_path / "out.docx").tables[0]
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    assert table.cell(0, 1).paragraphs[0].alignment == WD_ALIGN_PARAGRAPH.RIGHT
