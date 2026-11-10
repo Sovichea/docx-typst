@@ -6,6 +6,9 @@ It is designed for **file-based document workflows**, including AI-agent and ver
 
 Version `0.1.0` is an alpha release for documents within the documented subset. It does not claim to reproduce every Word or Typst feature. Review `conversion_report.json` and inspect important pages before delivery.
 
+- [Supported subset](docs/supported-subset.md)
+- [Agentic document workflow](docs/agentic-document-workflow.md)
+
 ## Install
 
 Python 3.10 through 3.13 is supported.
