@@ -155,6 +155,25 @@ Body paragraph
     assert document.styles["Normal"].paragraph_format.alignment == 3
 
 
+def test_apostrophes_do_not_leak_code_or_comments_into_word(tmp_path: Path) -> None:
+    source = project(tmp_path, '''
+The hospital's original paragraph.
+// Hidden conversion note
+#table(columns: (100pt,), [The patient's record])
+#text(size: 10pt)[The pharmacist's recovery decision.]
+#image("picture.png", width: 30pt)
+''')
+    Image.new("RGB", (20, 10), "white").save(tmp_path / "picture.png")
+    typst_to_docx(source, tmp_path / "out.docx")
+    document = Document(tmp_path / "out.docx")
+    assert document.tables[0].cell(0, 0).text == "The patient's record"
+    text = "\n".join(p.text for p in document.paragraphs)
+    assert "The pharmacist's recovery decision." in text
+    assert "Hidden conversion note" not in text
+    assert "#table" not in text and "#text" not in text
+    assert len(document.inline_shapes) == 1
+
+
 def test_native_table_padding_accounts_for_line_boxes_without_changing_typography(tmp_path: Path) -> None:
     source = project(tmp_path, '''
 #set table(inset: 4pt)

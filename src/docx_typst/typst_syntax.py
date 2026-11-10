@@ -172,7 +172,7 @@ def balanced(text: str, start: int, left: str = "(", right: str = ")") -> tuple[
                 quote = None
             i += 1
             continue
-        if char in {'"', "'"}:
+        if char == '"':
             quote = char
         elif char == "/" and i + 1 < len(text) and text[i + 1] == "/":
             comment_line = True
@@ -248,7 +248,7 @@ def split_top_level(text: str, separator: str = ",") -> list[str]:
                 quote = None
             i += 1
             continue
-        if char in {'"', "'"}:
+        if char == '"':
             quote = char
         elif char == "/" and i + 1 < len(text) and text[i + 1] == "/":
             comment_line = True
@@ -330,7 +330,7 @@ def strip_comments(text: str) -> str:
                 quote = None
             i += 1
             continue
-        if char in {'"', "'"}:
+        if char == '"':
             quote = char
             out.append(char)
         elif char == "/" and i + 1 < len(text) and text[i + 1] == "/":

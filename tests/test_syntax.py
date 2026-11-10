@@ -62,6 +62,15 @@ def test_parse_call_at_includes_content_body() -> None:
     assert call.body.text == "Hello *world*"
 
 
+def test_apostrophes_are_markup_not_string_delimiters() -> None:
+    call = parse_call_at("#table(columns: 1, [The hospital's official records.])", 1)
+    assert call is not None
+    assert call.raw.endswith("])")
+    assert call.positional[0].text == "The hospital's official records."
+    assert split_top_level("[The patient's medicine], [Next cell]") == [
+        "[The patient's medicine]", "[Next cell]"]
+
+
 def test_colors_and_lengths() -> None:
     assert color_to_rgb(parse_value('rgb("58686D")')) == (88, 104, 109)
     assert color_to_rgb(parse_value('rgb("abc")')) == (170, 187, 204)
