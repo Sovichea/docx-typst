@@ -6,6 +6,7 @@ from docx_typst.typst_syntax import (
     UnitValue,
     balanced,
     color_to_rgb,
+    format_length,
     length_to_pt,
     parse_call_at,
     parse_value,
@@ -99,6 +100,13 @@ def test_inline_parser_reads_links_code_and_fields() -> None:
     assert field.field == "PAGE"
 
 
+def test_lengths_round_to_half_points() -> None:
+    assert format_length(12.2) == "12pt"
+    assert format_length(12.3) == "12.5pt"
+    assert format_length(12.8) == "13pt"
+    assert format_length(2.0, "cm") == "2cm"
+
+
 def test_style_and_page_conversion() -> None:
     style = style_from_spec(
         "Heading 1",
@@ -107,12 +115,18 @@ def test_style_and_page_conversion() -> None:
             "size": UnitValue(18.0, "pt"),
             "fill": "#2F5496",
             "before": UnitValue(18.0, "pt"),
+            "word-before": UnitValue(5.0, "pt"),
+            "word-after": UnitValue(21.0, "pt"),
+            "word-font": "DM Sans SemiBold",
             "keep-with-next": True,
             "east-asia-font": "Yu Gothic",
         },
     )
     assert style.name == "Heading 1"
     assert style.font == "Calibri"
+    assert style.word_font == "DM Sans SemiBold"
+    assert style.word_before == 5.0
+    assert style.word_after == 21.0
     assert style.east_asia_font == "Yu Gothic"
     assert style.size == 18.0
     assert style.color == "#2F5496"
