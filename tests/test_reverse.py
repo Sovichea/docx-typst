@@ -51,7 +51,13 @@ def test_roundtrip_preserves_hyperlinks_fields_and_merges(converted_project, tmp
     typst_to_docx(project / "main.typ", output)
     document = Document(output)
     hyperlink_paragraph = next(item for item in document.paragraphs if item.text.startswith("A hyperlink"))
-    assert hyperlink_paragraph._p.findall(qn("w:hyperlink"))
+    hyperlinks = hyperlink_paragraph._p.findall(qn("w:hyperlink"))
+    assert hyperlinks
+    run_properties = hyperlinks[0].find(qn("w:r")).find(qn("w:rPr"))
+    assert run_properties.find(qn("w:u")) is not None
+    color = run_properties.find(qn("w:color"))
+    assert color is not None
+    assert color.get(qn("w:val")) == "0563C1"
     assert document.sections[0].footer._element.findall(".//" + qn("w:fldSimple"))
     table = document.tables[0]
     assert table.style.name == "Table Grid"

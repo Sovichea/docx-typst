@@ -368,6 +368,10 @@ class DocxWriter(TableWriterMixin, PageWriterMixin):
     def _hyperlink(self, paragraph: Any, model: Run) -> None:
         run = paragraph.add_run(model.text)
         self._format_run(run, model)
+        if model.link and model.color is None:
+            run.font.color.rgb = RGBColor(0x05, 0x63, 0xC1)
+        if model.link and model.underline is None:
+            run.font.underline = True
         hyperlink = OxmlElement("w:hyperlink")
         if model.link:
             try:
