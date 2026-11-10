@@ -76,6 +76,7 @@ class DocxWriter(TableWriterMixin, PageWriterMixin):
         self.reference = reference
         self.doc = load_docx(reference) if reference else load_docx()
         self.counts: dict[str, int] = {}
+        self._pending_space = 0.0
 
     def write(self) -> Document:
         self._metadata()
@@ -141,8 +142,16 @@ class DocxWriter(TableWriterMixin, PageWriterMixin):
         except (KeyError, AttributeError):
             pass
         font = style.font
-        if spec.font:
+        if spec.word_font:
+            font.name = spec.word_font
+            font.bold = False
+        elif spec.font:
             font.name = spec.font
+        if spec.word_font or spec.font:
+            rpr = style.element.get_or_add_rPr()
+            rfonts = rpr.get_or_add_rFonts()
+            for attr_name in ("asciiTheme", "hAnsiTheme", "eastAsiaTheme", "cstheme"):
+                rfonts.attrib.pop(qn("w:" + attr_name), None)
         if spec.east_asia_font:
             rpr = style.element.get_or_add_rPr()
             fonts = rpr.get_or_add_rFonts()
@@ -153,6 +162,8 @@ class DocxWriter(TableWriterMixin, PageWriterMixin):
             font.bold = spec.bold
         if spec.weight:
             font.bold = spec.weight.lower() not in {"regular", "normal", "light"}
+        if spec.word_font:
+            font.bold = None
         if spec.tracking is not None:
             self._character_spacing(style.element, spec.tracking)
         if spec.italic is not None:
@@ -175,10 +186,12 @@ class DocxWriter(TableWriterMixin, PageWriterMixin):
             paragraph.alignment = ALIGN_MAP.get(spec.align)
         if spec.justify:
             paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-        if spec.space_before is not None:
-            paragraph.space_before = Pt(spec.space_before)
-        if spec.space_after is not None:
-            paragraph.space_after = Pt(spec.space_after)
+        if spec.space_before is not None or spec.word_before is not None:
+            value = spec.word_before if spec.word_before is not None else spec.space_before
+            paragraph.space_before = Pt(value)
+        if spec.space_after is not None or spec.word_after is not None:
+            value = spec.word_after if spec.word_after is not None else spec.space_after
+            paragraph.space_after = Pt(value)
         if spec.line_spacing_pt is not None:
             paragraph.line_spacing = Pt(spec.line_spacing_pt)
         elif spec.line_spacing is not None:
@@ -215,27 +228,27 @@ class DocxWriter(TableWriterMixin, PageWriterMixin):
             try:
                 rpr.insert_element_before(
                     spacing,
-                    qn("w:w"),
-                    qn("w:kern"),
-                    qn("w:position"),
-                    qn("w:sz"),
-                    qn("w:szCs"),
-                    qn("w:highlight"),
-                    qn("w:u"),
-                    qn("w:effect"),
-                    qn("w:bdr"),
-                    qn("w:shd"),
-                    qn("w:fitText"),
-                    qn("w:vertAlign"),
-                    qn("w:rtl"),
-                    qn("w:cs"),
-                    qn("w:em"),
-                    qn("w:lang"),
-                    qn("w:eastAsianLayout"),
-                    qn("w:specVanish"),
-                    qn("w:oMath"),
+                    "w:w",
+                    "w:kern",
+                    "w:position",
+                    "w:sz",
+                    "w:szCs",
+                    "w:highlight",
+                    "w:u",
+                    "w:effect",
+                    "w:bdr",
+                    "w:shd",
+                    "w:fitText",
+                    "w:vertAlign",
+                    "w:rtl",
+                    "w:cs",
+                    "w:em",
+                    "w:lang",
+                    "w:eastAsianLayout",
+                    "w:specVanish",
+                    "w:oMath",
                 )
-            except (AttributeError, ValueError):
+            except (AttributeError, ValueError, KeyError):
                 rpr.append(spacing)
         spacing.set(qn("w:val"), str(round(points * 20)))
 
@@ -256,14 +269,14 @@ class DocxWriter(TableWriterMixin, PageWriterMixin):
                 paragraph.add_run().add_break(WD_BREAK.PAGE)
                 self.counts["page_breaks"] = self.counts.get("page_breaks", 0) + 1
             elif isinstance(block, Spacer):
-                paragraph = container.add_paragraph()
-                fmt = paragraph.paragraph_format
-                fmt.space_before = Pt(0)
-                fmt.space_after = Pt(0)
-                fmt.line_spacing = Pt(max(1.0, block.height_pt))
-                paragraph.add_run("\u200b")
+                self._pending_space += max(0.0, block.height_pt)
             elif isinstance(block, HorizontalRule):
                 paragraph = container.add_paragraph()
+                fmt = paragraph.paragraph_format
+                fmt.space_before = Pt(self._pending_space)
+                self._pending_space = 0.0
+                fmt.space_after = Pt(0)
+                fmt.line_spacing = Pt(1)
                 self._bottom_border(paragraph)
             elif isinstance(block, SectionBreak):
                 self._section(block)
@@ -274,9 +287,18 @@ class DocxWriter(TableWriterMixin, PageWriterMixin):
                 self.counts["unsupported"] = self.counts.get("unsupported", 0) + 1
 
     def _paragraph(self, container: Any, block: Paragraph) -> None:
+        pending = self._pending_space
+        self._pending_space = 0.0
+        spec = self.model.styles.get(block.style or "Normal")
+        if pending and spec is not None and spec.word_before is not None:
+            pending = spec.word_before
+        original_before = block.space_before
+        if pending:
+            block.space_before = (block.space_before or 0.0) + pending
         style = self._ensure_style(block.style or "Normal")
         paragraph = container.add_paragraph(style=style)
         self._paragraph_format(paragraph, block)
+        block.space_before = original_before
         if block.bookmarks:
             for name in block.bookmarks:
                 self._bookmark(paragraph, name, start=True)
@@ -509,6 +531,9 @@ class DocxWriter(TableWriterMixin, PageWriterMixin):
 
     def _image_block(self, container: Any, block: ImageBlock) -> None:
         paragraph = container.add_paragraph()
+        if self._pending_space:
+            paragraph.paragraph_format.space_before = Pt(self._pending_space)
+            self._pending_space = 0.0
         if block.align:
             paragraph.alignment = ALIGN_MAP.get(block.align, WD_ALIGN_PARAGRAPH.CENTER)
         self._image(paragraph, block.image)
@@ -521,6 +546,9 @@ class DocxWriter(TableWriterMixin, PageWriterMixin):
 
     def _code(self, container: Any, block: CodeBlock) -> None:
         paragraph = container.add_paragraph()
+        if self._pending_space:
+            paragraph.paragraph_format.space_before = Pt(self._pending_space)
+            self._pending_space = 0.0
         run = paragraph.add_run(block.text)
         run.font.name = "Consolas"
         run.font.size = Pt(9)

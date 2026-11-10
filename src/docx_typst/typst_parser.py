@@ -212,11 +212,10 @@ class TypstParser(BlockBuilderMixin):
                 if end is not None:
                     i = end
                     continue
-            if (
-                stripped.startswith("#show")
-                or stripped.startswith("#import")
-                or stripped.startswith("#let ")
-            ):
+            if stripped.startswith("#show"):
+                i = self._skip_show_rule(text, i + indent)
+                continue
+            if stripped.startswith("#import") or stripped.startswith("#let "):
                 i = line_end + 1
                 continue
             if stripped.startswith("#"):
@@ -230,8 +229,8 @@ class TypstParser(BlockBuilderMixin):
                             blocks.extend(block)
                         else:
                             blocks.append(block)
-                        i = i + indent + 1 + len(call.raw)
-                        continue
+                    i = i + indent + 1 + len(call.raw)
+                    continue
             start = i
             end = line_end
             cursor = line_end + 1
@@ -259,6 +258,19 @@ class TypstParser(BlockBuilderMixin):
                 )
             i = end + 1
         return blocks
+
+    def _skip_show_rule(self, text: str, start: int) -> int:
+        line_end = text.find("\n", start)
+        if line_end < 0:
+            line_end = len(text)
+        brace = text.find("{", start, line_end + 1)
+        if brace < 0:
+            return line_end + 1
+        try:
+            _inner, end = balanced(text, brace, "{", "}")
+            return end
+        except ValueError:
+            return line_end + 1
 
     def _set_rule(
         self, text: str, start: int, blocks: list[Block], location: str

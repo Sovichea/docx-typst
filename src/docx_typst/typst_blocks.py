@@ -64,7 +64,7 @@ class BlockBuilderMixin:
         if name in {"v", "vertical-space"}:
             value = call.positional[0] if call.positional else 0
             height = length_to_pt(value)
-            if height <= 0:
+            if height <= 0 or location.startswith("header") or location.startswith("footer"):
                 return None
             return Spacer(height_pt=height)
         if name in {"line", "hline"}:

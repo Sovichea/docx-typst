@@ -86,6 +86,8 @@ def format_number(value: float) -> str:
 
 
 def format_length(value: float, unit: str = "pt") -> str:
+    if unit == "pt":
+        value = round(value * 2) / 2
     return f"{format_number(value)}{unit}"
 
 

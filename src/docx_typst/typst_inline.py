@@ -286,14 +286,10 @@ def _apply(runs: list[Run], **kwargs: Any) -> None:
 
 
 def _trim(runs: list[Run]) -> None:
-    for run in runs:
-        if run.kind == "text" and run.text:
-            run.text = run.text.lstrip()
-            break
-    for run in reversed(runs):
-        if run.kind == "text" and run.text:
-            run.text = run.text.rstrip()
-            break
+    if runs and runs[0].kind == "text" and runs[0].text:
+        runs[0].text = runs[0].text.lstrip()
+    if runs and runs[-1].kind == "text" and runs[-1].text:
+        runs[-1].text = runs[-1].text.rstrip()
     runs[:] = [run for run in runs if run.kind != "text" or run.text]
 
 

@@ -62,6 +62,7 @@ class StyleDef:
     next_style: str | None = None
     font: str | None = None
     east_asia_font: str | None = None
+    word_font: str | None = None
     size: float | None = None
     bold: bool | None = None
     italic: bool | None = None
@@ -78,6 +79,8 @@ class StyleDef:
     leading: float | None = None
     space_before: float | None = None
     space_after: float | None = None
+    word_before: float | None = None
+    word_after: float | None = None
     line_spacing: float | None = None
     line_spacing_pt: float | None = None
     left_indent: float | None = None
@@ -95,6 +98,7 @@ class StyleDef:
             "next_style",
             "font",
             "east_asia_font",
+            "word_font",
             "size",
             "bold",
             "italic",
@@ -111,6 +115,8 @@ class StyleDef:
             "leading",
             "space_before",
             "space_after",
+            "word_before",
+            "word_after",
             "line_spacing",
             "line_spacing_pt",
             "left_indent",

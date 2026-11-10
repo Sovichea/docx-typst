@@ -1,4 +1,4 @@
-// Minimal, neutral document primitives used by generated docx-typst projects.
+﻿// Minimal, neutral document primitives used by generated docx-typst projects.
 // Import with: #import "template.typ": *
 //
 // The module intentionally implements a static subset. It does not evaluate
@@ -28,7 +28,7 @@
   let exact = if line-spacing-pt != auto { line-spacing-pt } else { spec.at("line-spacing-pt", default: none) }
   if exact != none { calc.max(0pt, exact - size * 1.2) }
   else if multiple != none { calc.max(0pt, (multiple - 1) * size * 1.2) }
-  else { 0.65em }
+  else { 7pt }
 }
 
 #let docx-document(
@@ -49,7 +49,7 @@
   if footer != none { page-settings.insert("footer", footer) }
   set std.page(..page-settings)
   set text(font: "Calibri", size: 11pt, fill: black)
-  set par(leading: 0.65em)
+  set par(leading: 7pt)
   show heading: set block(above: 0pt, below: 0pt)
   body
 }
@@ -105,9 +105,8 @@
   if bookmarks.len() > 0 {
     for name in bookmarks { docx-anchor(name) }
   }
+  if before-value > 0pt { v(before-value, weak: true) }
   block(
-    above: before-value,
-    below: after-value,
     sticky: sticky,
     breakable: not unbreakable,
     width: 100%,
@@ -116,6 +115,7 @@
       #std.align(docx-align(align-name))[#content]
     ]
   ]
+  if after-value > 0pt { v(after-value) }
 }
 
 #let docx-heading(
@@ -163,11 +163,13 @@
     set par(leading: leading)
     body
   })
-  block(above: before-value, below: after-value, sticky: true)[
+  if before-value > 0pt { v(before-value, weak: true) }
+  block(sticky: true)[
     #pad(left: left-value, right: right-value)[
       #std.align(docx-align(align-name))[#heading-body]
     ]
   ]
+  if after-value > 0pt { v(after-value) }
 }
 
 #let docx-item(
@@ -210,7 +212,8 @@
   let marker-column = calc.max(0pt, left-value - hanging-value)
   set text(font: font, size: size, fill: fill, weight: weight, style: font-style, tracking: tracking)
   set par(leading: leading)
-  block(above: before-value, below: after-value, width: 100%)[
+  if before-value > 0pt { v(before-value, weak: true) }
+  block(width: 100%)[
     #pad(left: marker-column)[
       #grid(
         columns: (hanging-value, 1fr),
@@ -221,6 +224,7 @@
       )
     ]
   ]
+  if after-value > 0pt { v(after-value) }
 }
 
 #let docx-inline-image(path, width: auto, height: auto, alt: none) = {
@@ -385,3 +389,4 @@
     #text(size: 8pt, fill: luma(90))[Unsupported content: #kind #detail]
   ]
 }
+

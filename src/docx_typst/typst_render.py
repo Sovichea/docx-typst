@@ -50,6 +50,8 @@ def style_entry(name: str, spec: StyleDef) -> str:
         fields.append(f"font: {typst_string(spec.font)}")
     if spec.east_asia_font:
         fields.append(f"east-asia-font: {typst_string(spec.east_asia_font)}")
+    if spec.word_font:
+        fields.append(f"word-font: {typst_string(spec.word_font)}")
     if spec.size is not None:
         fields.append(f"size: {format_length(spec.size)}")
     if spec.weight:
@@ -82,6 +84,10 @@ def style_entry(name: str, spec: StyleDef) -> str:
         fields.append(f"before: {format_length(spec.space_before)}")
     if spec.space_after is not None:
         fields.append(f"after: {format_length(spec.space_after)}")
+    if spec.word_before is not None:
+        fields.append(f"word-before: {format_length(spec.word_before)}")
+    if spec.word_after is not None:
+        fields.append(f"word-after: {format_length(spec.word_after)}")
     if spec.line_spacing is not None:
         fields.append(f"line-spacing: {format_number(spec.line_spacing)}")
     if spec.line_spacing_pt is not None:
@@ -183,7 +189,7 @@ def render_run(run: Run) -> str:
     if run.kind == "column-break":
         return "#colbreak()"
     if run.kind == "tab":
-        return "#h(1.5em)"
+        return "#h(24pt)"
     if run.kind == "image":
         return _render_inline_image(run)
     if run.kind == "field":
@@ -265,8 +271,8 @@ def _render_spaces(line: str) -> str:
         if len(spaces) == 1 and match.start() > 0 and match.end() < len(line):
             parts.append(" ")
         else:
-            amount = len(spaces) * 0.25
-            parts.append(f"#h({format_number(amount)}em)")
+            amount = len(spaces) * 3
+            parts.append(f"#h({format_number(amount)}pt)")
         position = match.end()
     tail = line[position:]
     if tail:

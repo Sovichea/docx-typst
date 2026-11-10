@@ -27,6 +27,13 @@ VALIGN_MAP = {
 
 class TableWriterMixin:
     def _table(self, container: Any, block: TableBlock) -> None:
+        if getattr(self, "_pending_space", 0):
+            paragraph = container.add_paragraph()
+            fmt = paragraph.paragraph_format
+            fmt.space_before = Pt(self._pending_space)
+            fmt.space_after = Pt(0)
+            fmt.line_spacing = Pt(1)
+            self._pending_space = 0.0
         if not block.rows:
             return
         ncols = len(block.columns) or max(
@@ -54,8 +61,23 @@ class TableWriterMixin:
         for index, width in enumerate(block.columns):
             if width:
                 table.columns[index].width = Pt(width)
+        if any(block.columns):
+            total = sum(width or 0 for width in block.columns)
+            tbl_pr = table._tbl.tblPr
+            tbl_w = tbl_pr.find(qn("w:tblW"))
+            if tbl_w is None:
+                tbl_w = OxmlElement("w:tblW")
+                tbl_pr.append(tbl_w)
+            tbl_w.set(qn("w:type"), "dxa")
+            tbl_w.set(qn("w:w"), str(round(total * 20)))
         for row in block.rows:
             for cell in row:
+                if any(block.columns):
+                    width = sum(
+                        block.columns[cell.col : cell.col + cell.colspan]
+                    )
+                    if width:
+                        table.cell(cell.row, cell.col).width = Pt(width)
                 if cell.rowspan > 1 or cell.colspan > 1:
                     start = table.cell(cell.row, cell.col)
                     end = table.cell(
@@ -77,13 +99,13 @@ class TableWriterMixin:
                 try:
                     tr_pr.insert_element_before(
                         cant_split,
-                        qn("w:trHeight"),
-                        qn("w:tblHeader"),
-                        qn("w:tblCellSpacing"),
-                        qn("w:jc"),
-                        qn("w:hidden"),
+                        "w:trHeight",
+                        "w:tblHeader",
+                        "w:tblCellSpacing",
+                        "w:jc",
+                        "w:hidden",
                     )
-                except (AttributeError, ValueError):
+                except (AttributeError, ValueError, KeyError):
                     tr_pr.append(cant_split)
         for row in block.rows:
             for cell in row:

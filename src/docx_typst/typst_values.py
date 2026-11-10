@@ -45,6 +45,9 @@ def style_from_spec(name: str, spec: dict[str, Any]) -> StyleDef:
     east_asia = spec.get("east-asia-font")
     if isinstance(east_asia, str):
         style.east_asia_font = east_asia
+    word_font = spec.get("word-font")
+    if isinstance(word_font, str):
+        style.word_font = word_font
     weight = spec.get("weight")
     if isinstance(weight, str):
         style.weight = weight
@@ -80,6 +83,8 @@ def style_from_spec(name: str, spec: dict[str, Any]) -> StyleDef:
     for key, attr_name in (
         ("before", "space_before"),
         ("after", "space_after"),
+        ("word-before", "word_before"),
+        ("word-after", "word_after"),
         ("line-spacing-pt", "line_spacing_pt"),
         ("left-indent", "left_indent"),
         ("right-indent", "right_indent"),
