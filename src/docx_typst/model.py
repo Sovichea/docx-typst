@@ -233,6 +233,8 @@ class TableCell:
     fill: str | None = None
     valign: str | None = None
     width_pt: float | None = None
+    row: int = 0
+    col: int = 0
 
 
 @dataclass
@@ -280,6 +282,8 @@ class SectionBreak:
     header: list["Block"] = field(default_factory=list)
     footer: list["Block"] = field(default_factory=list)
     start_type: str = "nextPage"
+    header_linked: bool = True
+    footer_linked: bool = True
 
 
 @dataclass
