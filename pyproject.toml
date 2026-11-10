@@ -54,3 +54,6 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 docx_typst = ["template.typ", "templates/*.typ", "templates/assets/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
