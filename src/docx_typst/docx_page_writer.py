@@ -122,11 +122,10 @@ class PageWriterMixin:
             for child in list(element):
                 if child.tag in {qn("w:p"), qn("w:tbl")}:
                     element.remove(child)
-            pending = self._pending_space, self._pending_block_space, self._pending_page_break
+            pending = self._pending_space, self._pending_block_space
             self._pending_space = self._pending_block_space = 0.0
-            self._pending_page_break = False
             self._blocks(header, blocks)
-            self._pending_space, self._pending_block_space, self._pending_page_break = pending
+            self._pending_space, self._pending_block_space = pending
             if not blocks:
                 header.add_paragraph()
 

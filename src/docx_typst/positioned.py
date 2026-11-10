@@ -71,9 +71,6 @@ def write_canvas(writer: Any, container: Any, canvas: CanvasBlock) -> None:
     fmt = paragraph.paragraph_format
     fmt.space_before = fmt.space_after = Pt(0)
     fmt.line_spacing = Pt(1)
-    if writer._pending_page_break:
-        fmt.page_break_before = True
-        writer._pending_page_break = False
     writer._pending_space = 0
     paragraph._p.set(f"{{{SOURCE_NS}}}canvas", canvas.identifier)
     bookmark = f"dxt_canvas_{len(writer.source_records)}"
