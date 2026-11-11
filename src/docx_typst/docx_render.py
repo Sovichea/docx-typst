@@ -386,6 +386,10 @@ class DocxWriter(FlowSpacingMixin, TableWriterMixin, PageWriterMixin):
         style = self._ensure_style(block.style or "Normal")
         paragraph = container.add_paragraph(style=style)
         self._paragraph_format(paragraph, block)
+        if block.right_tab:
+            from docx.enum.text import WD_TAB_ALIGNMENT
+            paragraph.paragraph_format.tab_stops.add_tab_stop(
+                Pt(self._available_table_width(container)), WD_TAB_ALIGNMENT.RIGHT)
         previous = paragraph._p.getprevious()
         at_page_start = previous is None or (previous.tag == qn("w:p") and
             (previous.find(".//" + qn("w:sectPr")) is not None or previous.xpath('.//w:br[@w:type="page"]')))

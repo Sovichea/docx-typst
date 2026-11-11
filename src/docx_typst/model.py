@@ -219,6 +219,7 @@ class Run:
 
 @dataclass
 class Paragraph:
+    right_tab: bool = False
     runs: list[Run] = field(default_factory=list)
     style: str | None = "Normal"
     align: str | None = None
@@ -251,6 +252,7 @@ class Paragraph:
 
 @dataclass
 class TableCell:
+    borders: dict[str, str] = field(default_factory=dict)
     insets: dict[str, float] = field(default_factory=dict)
     blocks: list["Block"] = field(default_factory=list)
     colspan: int = 1

@@ -140,6 +140,8 @@ class TableWriterMixin:
         for row in block.rows:
             for cell in row:
                 target = table.cell(cell.row, cell.col)
+                if cell.borders:
+                    self._table_borders(target, "none", cell.borders, cell=True)
                 if cell.fill:
                     self._cell_fill(target, cell.fill)
                 if cell.valign:
@@ -176,11 +178,12 @@ class TableWriterMixin:
         self.counts["tables"] = self.counts.get("tables", 0) + 1
         self.counts["table_rows"] = self.counts.get("table_rows", 0) + nrows
 
-    def _table_borders(self, table: Any, stroke: str, overrides: dict[str, str] | None = None) -> None:
-        properties = table._tbl.tblPr
-        for existing in properties.findall(qn("w:tblBorders")):
+    def _table_borders(self, table: Any, stroke: str, overrides: dict[str, str] | None = None, *, cell: bool = False) -> None:
+        properties = table._tc.get_or_add_tcPr() if cell else table._tbl.tblPr
+        tag = "w:tcBorders" if cell else "w:tblBorders"
+        for existing in properties.findall(qn(tag)):
             properties.remove(existing)
-        borders = OxmlElement("w:tblBorders")
+        borders = OxmlElement(tag)
         for edge in ("top", "left", "bottom", "right", "insideH", "insideV"):
             edge_stroke = (overrides or {}).get(edge, stroke)
             width, color = 1.0, (0, 0, 0)
@@ -195,7 +198,7 @@ class TableWriterMixin:
             border.set(qn("w:sz"), str(round(width * 8)))
             border.set(qn("w:color"), "".join(f"{channel:02X}" for channel in color))
             borders.append(border)
-        properties.insert_element_before(borders, "w:shd", "w:tblLayout", "w:tblCellMar", "w:tblLook")
+        properties.insert_element_before(borders, "w:shd", "w:tblLayout", "w:tblCellMar", "w:tblLook", "w:tcMar")
 
     def _available_table_width(self, container: Any) -> float:
         if not hasattr(container, "_tc"):

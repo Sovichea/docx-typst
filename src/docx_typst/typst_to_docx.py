@@ -10,6 +10,7 @@ from typing import Any
 
 from . import __version__
 from .docx_render import DocxWriter
+from .computed import materialize_computed
 from .static_render import materialize_static_blocks
 from .typst_parser import parse_typst_text
 
@@ -26,6 +27,7 @@ def convert(
         raise FileNotFoundError(source)
     output_path = Path(output)
     text = source.read_text(encoding="utf-8")
+    text, computed_values = materialize_computed(source, text)
     text, static_warnings = materialize_static_blocks(source, text, source.parent)
     document = parse_typst_text(source, text)
     for warning in static_warnings:
@@ -65,6 +67,7 @@ def convert(
         "page": document.page.as_dict(),
         "diagnostics": [item.as_dict() for item in document.diagnostics],
         "styles": sorted(document.styles),
+        "computed_values": sorted(computed_values),
     }
     report_path = output_path.parent / "conversion_report.json"
     report_path.write_text(

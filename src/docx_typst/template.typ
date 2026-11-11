@@ -287,6 +287,8 @@
   merges: (),
   fills: (),
   cell-insets: (),
+  cell-borders: (),
+  cell-aligns: (),
   borders: (:),
   native-text-bounds: true,
   valigns: (),
@@ -311,6 +313,10 @@
     inset-map.insert(str(item.at(0)) + ":" + str(item.at(1)), item.at(2))
   }
   let valign-map = (:)
+  let border-map = (:)
+  let align-map = (:)
+  for item in cell-borders { border-map.insert(str(item.at(0)) + ":" + str(item.at(1)), item.at(2)) }
+  for item in cell-aligns { align-map.insert(str(item.at(0)) + ":" + str(item.at(1)), item.at(2)) }
   for item in valigns {
     valign-map.insert(str(item.at(0)) + ":" + str(item.at(1)), item.at(2))
   }
@@ -351,8 +357,10 @@
          left: borders.at(if c == 0 { "left" } else { "insideV" }, default: stroke),
          right: borders.at(if c + span.at(1) == ncols { "right" } else { "insideV" }, default: stroke))
       }
+      cell-stroke = border-map.at(key, default: cell-stroke)
+      let cell-align = docx-align(align-map.at(key, default: align))
       let cell-inset = inset-map.at(key, default: inset)
-      let cell-fill = if fill == none { none } else { rgb(fill) }
+      let cell-fill = if fill == none { none } else if type(fill) == color { fill } else { rgb(fill) }
       if span.at(0) > 1 or span.at(1) > 1 {
         row-cells.push(table.cell(
           rowspan: span.at(0),
@@ -446,3 +454,90 @@
 
 // Native spacing may need a different Word gap because of its line boxes.
 #let docx-space(amount, word: auto) = v(amount)
+
+
+// Evaluate with Typst at export time; the authored formulas remain untouched.
+#let docx-settings(..settings) = none
+#let docx-money(amount, symbol: "$") = grid(columns: (auto, 1fr), [#symbol], align(right)[#amount])
+#let _docx-resolve(value, x, y) = {
+  if type(value) == function { value(x, y) }
+  else if type(value) == array and value.len() > 0 { value.at(calc.rem(x, value.len())) }
+  else { value }
+}
+#let _docx-data(value) = {
+  if type(value) != content { return (kind: "text", text: str(value)) }
+  let name = repr(value.func())
+  let fields = value.fields()
+  if name in ("text", "symbol") { return (kind: "text", text: fields.at("text", default: "")) }
+  if name in ("space", "linebreak", "parbreak") { return (kind: name) }
+  if name == "v" { return (kind: "v", amount: repr(fields.amount)) }
+  if name in ("table", "grid") {
+    let columns = fields.at("columns", default: 1)
+    if type(columns) == int { columns = range(columns).map(_ => 1fr) }
+    let ncols = columns.len()
+    let children = ()
+    let header-cells = 0
+    for child in fields.children {
+      if repr(child.func()) == "header" {
+        children += child.children
+        header-cells += child.children.len()
+      } else { children.push(child) }
+    }
+    let row = 0
+    let col = 0
+    let occupied = (:)
+    let cells = ()
+    let auto-widths = range(ncols).map(_ => 0pt)
+    for child in children {
+      while str(row) + ":" + str(col) in occupied {
+        col += 1
+        if col >= ncols { row += 1; col = 0 }
+      }
+      let cell = child.fields()
+      let rowspan = cell.at("rowspan", default: 1)
+      let colspan = cell.at("colspan", default: 1)
+      let fill = _docx-resolve(cell.at("fill", default: fields.at("fill", default: none)), col, row)
+      let stroke = _docx-resolve(cell.at("stroke", default: fields.at("stroke", default: if name == "grid" { none } else { 0.5pt })), col, row)
+      let inset = _docx-resolve(cell.at("inset", default: fields.at("inset", default: if name == "grid" { 0pt } else { 5pt })), col, row)
+      let alignment = _docx-resolve(cell.at("align", default: fields.at("align", default: left)), col, row)
+      if columns.at(col) == auto and colspan == 1 {
+        let padding = if type(inset) == dictionary {
+          inset.at("left", default: inset.at("x", default: inset.at("rest", default: 0pt))) + inset.at("right", default: inset.at("x", default: inset.at("rest", default: 0pt)))
+        } else { inset * 2 }
+        auto-widths.at(col) = calc.max(auto-widths.at(col), measure(cell.body).width + padding)
+      }
+      let edges = (:)
+      if type(stroke) == dictionary {
+        for (key, paint) in stroke { edges.insert(key, repr(paint)) }
+      } else {
+        for key in ("top", "bottom", "left", "right") { edges.insert(key, repr(stroke)) }
+      }
+      let insets = if type(inset) == dictionary {
+        (top: repr(inset.at("top", default: inset.at("y", default: inset.at("rest", default: 0pt)))),
+         bottom: repr(inset.at("bottom", default: inset.at("y", default: inset.at("rest", default: 0pt)))),
+         left: repr(inset.at("left", default: inset.at("x", default: inset.at("rest", default: 0pt)))),
+         right: repr(inset.at("right", default: inset.at("x", default: inset.at("rest", default: 0pt)))))
+      } else { (top: repr(inset), bottom: repr(inset), left: repr(inset), right: repr(inset)) }
+      cells.push((row: row, col: col, rowspan: rowspan, colspan: colspan,
+        body: _docx-data(cell.body), fill: repr(fill), borders: edges, insets: insets, align: repr(alignment)))
+      for r in range(row, row + rowspan) {
+        for c in range(col, col + colspan) { occupied.insert(str(r) + ":" + str(c), true) }
+      }
+    }
+    let widths = columns.enumerate().map(((i, width)) => repr(if width == auto { auto-widths.at(i) } else { width }))
+    return (kind: name, columns: widths, cells: cells, header-rows: calc.ceil(header-cells / ncols),
+      column-gutter: repr(fields.at("column-gutter", default: 0pt)), row-gutter: repr(fields.at("row-gutter", default: 0pt)))
+  }
+  let result = (kind: name)
+  if "children" in fields { result.insert("children", fields.children.map(_docx-data)) }
+  if "body" in fields { result.insert("body", _docx-data(fields.body)) }
+  if "child" in fields { result.insert("body", _docx-data(fields.child)) }
+  if "alignment" in fields { result.insert("align", repr(fields.alignment)) }
+  if "dest" in fields { result.insert("dest", fields.dest) }
+  if name == "styled" { result.insert("unsupported", "styled content requires explicit structured text formatting") }
+  return result
+}
+#let docx-eval(id, value) = context {
+  [#metadata((id: id, value: _docx-data(value)))<docx-typst-eval>]
+  value
+}

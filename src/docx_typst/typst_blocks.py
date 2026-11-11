@@ -54,6 +54,13 @@ def _relative_widths(
 class BlockBuilderMixin:
     def _call_block(self, call: TypstCall, location: str) -> Block | list[Block] | None:
         name = call.name
+        if name == "docx-settings":
+            self._apply_show_args(call.named)
+            return None
+        if name == "docx-money":
+            return Paragraph(runs=[Run(text=string_value(call.arg("symbol", "$"))),
+                                   Run(kind="tab"), Run(text=string_value(call.positional[0]))],
+                             right_tab=True, align="left", space_after=0)
         if name in self._panel_helpers and call.body is not None:
             return self._panel_block(TypstCall(name="docx-panel", named=self._panel_helpers[name], body=call.body), location)
         if name in self._text_helpers and call.body is not None:
@@ -407,8 +414,13 @@ class BlockBuilderMixin:
         fills = call.arg("fills")
         if isinstance(fills, list):
             for item in fills:
-                if isinstance(item, list) and len(item) >= 3 and isinstance(item[2], str):
-                    fill_map[(int(item[0]), int(item[1]))] = item[2]
+                if isinstance(item, list) and len(item) >= 3:
+                    color = color_to_rgb(item[2])
+                    if color:
+                        fill_map[(int(item[0]), int(item[1]))] = '#' + ''.join(f'{v:02X}' for v in color)
+        border_map = {(int(r), int(c)): {edge: stroke_value(v) for edge, v in paints.items()}
+                      for r, c, paints in call.arg("cell-borders", [])}
+        align_map = {(int(r), int(c)): value for r, c, value in call.arg("cell-aligns", [])}
         valign_map: dict[tuple[int, int], str] = {}
         valigns = call.arg("valigns")
         if isinstance(valigns, list):
@@ -438,6 +450,9 @@ class BlockBuilderMixin:
                     cells[index].text, f"{location}:cell:{r}:{c}"
                 )
                 self._table_paragraphs(blocks)
+                for paragraph in blocks:
+                    if isinstance(paragraph, Paragraph) and (r, c) in align_map:
+                        paragraph.align = align_map[(r, c)]
                 row.append(
                     TableCell(
                         blocks=blocks,
@@ -447,6 +462,7 @@ class BlockBuilderMixin:
                         col=c,
                         fill=fill_map.get((r, c)),
                         insets=inset_map.get((r, c), {}),
+                        borders=border_map.get((r, c), {}),
                         valign=valign_map.get((r, c)),
                     )
                 )
@@ -537,7 +553,10 @@ class BlockBuilderMixin:
                 index = r * ncols + c
                 if index >= len(cells):
                     break
+                previous_width = self._layout_width
+                self._layout_width = widths[c]
                 blocks = self._parse_blocks(cells[index].text, f"{location}:cell:{r}:{c}")
+                self._layout_width = previous_width
                 if blocks and isinstance(blocks[-1], Paragraph) and blocks[-1].native_flow:
                     from .text_bounds import cap_height
                     last = blocks[-1]

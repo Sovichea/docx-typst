@@ -162,6 +162,7 @@ class TypstParser(BlockBuilderMixin):
         page = args.get("page")
         if isinstance(page, dict):
             self.document.page = page_setup_from_dict(page)
+            self._current_page = self.document.page
         for key, attr_name in (
             ("header-distance", "header_distance"),
             ("footer-distance", "footer_distance"),
@@ -289,7 +290,24 @@ class TypstParser(BlockBuilderMixin):
                 i = self._skip_show_rule(text, i + indent)
                 continue
             if stripped.startswith("#import") or stripped.startswith("#let "):
-                i = line_end + 1
+                cursor = i + indent
+                while cursor < length and text[cursor] != "\n":
+                    char = text[cursor]
+                    if char in "([{":
+                        _, cursor = balanced(text, cursor, char, {"(": ")", "[": "]", "{": "}"}[char])
+                    elif char == '"':
+                        cursor += 1
+                        while cursor < length:
+                            if text[cursor] == "\\":
+                                cursor += 2
+                            elif text[cursor] == '"':
+                                cursor += 1
+                                break
+                            else:
+                                cursor += 1
+                    else:
+                        cursor += 1
+                i = cursor + 1
                 continue
             if stripped.startswith("#"):
                 from .typst_syntax import parse_call_at

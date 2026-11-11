@@ -619,7 +619,7 @@ def color_from_luma(args: list[Any], kwargs: dict[str, Any]) -> str:
         return "#000000"
     value = args[0]
     if isinstance(value, UnitValue):
-        value = value.value
+        value = value.value * 255 / 100 if value.unit == "%" else value.value
     if not isinstance(value, (int, float)):
         return "#000000"
     if value <= 1:
