@@ -60,6 +60,9 @@ class TableMixin:
                     colspan=span,
                     rowspan=1,
                     fill=fill,
+                    insets={edge: twips(attr(node, "w:w")) or 0
+                            for edge in ("top", "bottom", "left", "right")
+                            if (node := first(tc_pr, f"./w:tcMar/w:{edge}")) is not None},
                     valign=valign,
                     width_pt=width,
                     row=row_index,
@@ -76,7 +79,17 @@ class TableMixin:
                 (cell.col + cell.colspan for row in row_cells for cell in row), default=1
             )
             columns = [None] * max_cols
-        stroke = _table_stroke(tbl_pr)
+        border_map = _table_border_map(tbl_pr)
+        if style_name:
+            try:
+                style = self.docx.styles[style_name]
+                while style is not None:
+                    inherited = _table_border_map(first(style.element, "./w:tblPr"))
+                    border_map = {**inherited, **border_map}
+                    style = style.base_style
+            except KeyError:
+                pass
+        stroke = _uniform_stroke(border_map)
         if stroke is None:
             self.warn(
                 "table_borders",
@@ -95,6 +108,7 @@ class TableMixin:
             style=style_name,
             align=attr(first(tbl_pr, "./w:jc"), "w:val"),
             stroke=stroke,
+            borders=border_map if len(set(border_map.values())) > 1 else {},
             keep_together=bool(keep_rows) and all(keep_rows),
             cell_margins_pt=twips(attr(first(tbl_pr, "./w:tblCellMar/w:left"), "w:w")),
         )
@@ -112,39 +126,42 @@ def _cell_fill(tc_pr: Any, theme: Any) -> str | None:
             attr(shd, "w:themeFillTint"),
             attr(shd, "w:themeFillShade"),
         )
-    if value and value.lower() not in {"auto", "none", "ffffff"}:
+    if value and value.lower() not in {"auto", "none"}:
         return "#" + value.upper()
     return None
 
 
-def _table_stroke(tbl_pr: Any) -> str | None:
+def _table_border_map(tbl_pr: Any) -> dict[str, str]:
     borders = first(tbl_pr, "./w:tblBorders")
-    if borders is None:
-        return None
     values = {}
+    if borders is None:
+        return values
     for edge in ("top", "left", "bottom", "right", "insideH", "insideV"):
         node = first(borders, f"./w:{edge}")
         if node is None:
             continue
-        val = attr(node, "w:val", "single")
-        if val in {"nil", "none"}:
+        if attr(node, "w:val", "single") in {"nil", "none"}:
+            values[edge] = "none"
             continue
-        size = attr(node, "w:sz")
-        color = attr(node, "w:color")
         try:
-            width = max(0.25, float(size or 4) / 8.0)
+            width = float(attr(node, "w:sz", "4")) / 8
         except ValueError:
             width = 0.5
-        values[edge] = (width, color)
+        color = attr(node, "w:color", "808080")
+        if color == "auto":
+            color = "808080"
+        values[edge] = f'{_pt(width)} + rgb("#{color.upper()}")'
+    return values
+
+
+def _uniform_stroke(values: dict[str, str]) -> str | None:
     if not values:
-        return "none" if len(borders) else None
-    widths = {round(width, 2) for width, _ in values.values()}
-    colors = {color for _, color in values.values() if color and color.lower() != "auto"}
-    if len(widths) == 1 and len(colors) <= 1:
-        width = next(iter(widths))
-        color = next(iter(colors), "808080")
-        return f'{_pt(width)} + rgb("#{color.upper()}")'
-    return None
+        return None
+    return next(iter(values.values())) if len(set(values.values())) == 1 else "none"
+
+
+def _table_stroke(tbl_pr: Any) -> str | None:
+    return _uniform_stroke(_table_border_map(tbl_pr))
 
 
 def _pt(value: float) -> str:

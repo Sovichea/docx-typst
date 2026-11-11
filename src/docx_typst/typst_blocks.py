@@ -461,8 +461,9 @@ class BlockBuilderMixin:
             stroke=stroke_value(call.arg("stroke")) if "stroke" in call.named else '0.5pt + luma(180)',
             keep_together=bool(call.arg("keep-together", False)),
             cell_margins_pt=inset,
-            native_text_bounds=True,
             column_weights=column_weights,
+            native_text_bounds=bool(call.arg("native-text-bounds", True)),
+            borders={edge: stroke_value(value) for edge, value in call.arg("borders", {}).items()},
         )
 
     def _native_table(self, call: TypstCall, location: str) -> TableBlock | None:

@@ -22,7 +22,7 @@ def test_forward_project_contains_editable_constructs(converted_project) -> None
     assert "#docx-table(" in main
     assert "#docx-inline-image(" in main
     assert "#pagebreak()" in main
-    assert report["status"] == "completed_with_warnings"
+    assert report["status"] == "completed"
     assert report["counts"]["headings"] == 2
     assert report["counts"]["tables"] == 1
     assert report["counts"]["images"] == 1
@@ -38,7 +38,7 @@ def test_forward_writes_manifest_and_assets(converted_project) -> None:
         assert (project / asset["output_path"]).is_file()
     assert "Heading 1" in manifest["styles"]
     report = json.loads((project / "conversion_report.json").read_text(encoding="utf-8"))
-    assert any(item["issue"] == "table_borders" for item in report["diagnostics"])
+    assert not any(item["issue"] == "table_borders" for item in report["diagnostics"])
 
 
 def test_forward_output_compiles_with_typst(converted_project) -> None:

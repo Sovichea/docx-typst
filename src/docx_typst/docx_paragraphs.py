@@ -129,7 +129,12 @@ class ParagraphMixin:
             image = image_runs[0].image
             if image is not None and self.extract_media and image.path:
                 self.counts["images"] += 1
-                return ImageBlock(image=image, align=image.align or "center")
+                inherited = self.styles.style_paragraph_properties(style_id)
+                effective = {**inherited, **ppr}
+                alignment = image.align if image.floating else effective.get("align", "left")
+                return ImageBlock(image=image, align=alignment or "left",
+                                  space_before=effective.get("space_before"),
+                                  space_after=effective.get("space_after"))
         return Paragraph(
             runs=runs,
             style=style_name,

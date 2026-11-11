@@ -286,6 +286,8 @@
   merges: (),
   fills: (),
   cell-insets: (),
+  borders: (:),
+  native-text-bounds: true,
   valigns: (),
   keep-together: false,
   style: none,
@@ -342,6 +344,12 @@
       let cell-body = if valign == "center" { std.align(horizon, cell) }
         else if valign == "bottom" { std.align(bottom, cell) }
         else { cell }
+      let cell-stroke = if borders.len() == 0 { stroke } else {
+        (top: borders.at(if r == 0 { "top" } else { "insideH" }, default: stroke),
+         bottom: borders.at(if r + span.at(0) == nrows { "bottom" } else { "insideH" }, default: stroke),
+         left: borders.at(if c == 0 { "left" } else { "insideV" }, default: stroke),
+         right: borders.at(if c + span.at(1) == ncols { "right" } else { "insideV" }, default: stroke))
+      }
       let cell-inset = inset-map.at(key, default: inset)
       let cell-fill = if fill == none { none } else { rgb(fill) }
       if span.at(0) > 1 or span.at(1) > 1 {
@@ -349,11 +357,12 @@
           rowspan: span.at(0),
           colspan: span.at(1),
           fill: cell-fill,
+          stroke: cell-stroke,
           inset: cell-inset,
           align: cell-align,
         )[#cell-body])
       } else {
-        row-cells.push(table.cell(fill: cell-fill, inset: cell-inset, align: cell-align)[#cell-body])
+        row-cells.push(table.cell(fill: cell-fill, stroke: cell-stroke, inset: cell-inset, align: cell-align)[#cell-body])
       }
     }
     rows.push(row-cells)

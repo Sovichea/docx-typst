@@ -62,14 +62,14 @@ def _line_excess(paragraph: Any) -> float:
     return max(0.0, line_height - height) if height is not None else 0.0
 
 
-def native_cell_padding(cell: Any, inset: float | dict[str, float]) -> None:
+def native_cell_padding(cell: Any, inset: float | dict[str, float], *, compensate: bool = True) -> None:
     paragraphs = cell.paragraphs
     if not paragraphs:
         return
     values = {edge: inset.get(edge, 0) if isinstance(inset, dict) else inset
               for edge in ("top", "bottom", "left", "right")}
-    top_excess = _line_excess(paragraphs[0]) / 2
-    bottom_excess = _line_excess(paragraphs[-1]) / 2
+    top_excess = _line_excess(paragraphs[0]) / 2 if compensate else 0
+    bottom_excess = _line_excess(paragraphs[-1]) / 2 if compensate else 0
     top = max(0.0, values["top"] - top_excess)
     bottom = max(0.0, values["bottom"] - bottom_excess)
     if isinstance(inset, dict):
