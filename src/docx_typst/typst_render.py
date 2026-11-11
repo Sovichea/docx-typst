@@ -187,6 +187,10 @@ def render_runs(runs: Iterable[Run]) -> str:
 
 
 def render_run(run: Run) -> str:
+    if run.link:
+        from dataclasses import replace
+        run = replace(run, color=run.color or "#0563C1",
+                      underline=True if run.underline is None else run.underline)
     if run.kind == "break":
         return "#linebreak()"
     if run.kind == "page-break":
@@ -485,6 +489,11 @@ def render_table(table: TableBlock) -> str:
         lines.append(f"  stroke: {table.stroke},")
     if table.cell_margins_pt is not None:
         lines.append(f"  inset: {format_length(table.cell_margins_pt)},")
+    insets = [f"({cell.row}, {cell.col}, (" + ", ".join(
+        f"{edge}: {format_length(value)}" for edge, value in cell.insets.items()) + "))"
+        for row in table.rows for cell in row if cell.insets]
+    if insets:
+        lines.append(f"  cell-insets: ({', '.join(insets)},),")
     if table.keep_together:
         lines.append("  keep-together: true,")
     lines.append("  cells: (")

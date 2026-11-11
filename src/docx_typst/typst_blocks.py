@@ -54,12 +54,17 @@ def _relative_widths(
 class BlockBuilderMixin:
     def _call_block(self, call: TypstCall, location: str) -> Block | list[Block] | None:
         name = call.name
+        if name in self._panel_helpers and call.body is not None:
+            return self._panel_block(TypstCall(name="docx-panel", named=self._panel_helpers[name], body=call.body), location)
         if name in self._text_helpers and call.body is not None:
             settings = self._text_helpers[name]
             runs: list[Run] = []
             self.inline._call(TypstCall(name="text", named=settings, body=call.body), runs)
             size = length_to_pt(settings.get("size"), self.document.default_size)
-            return Paragraph(runs=runs, line_spacing_pt=self._text_line_height(settings.get("font"), size), native_flow=True)
+            from .text_bounds import cap_height
+            font = settings.get("font", self.document.default_font)
+            return Paragraph(runs=runs, line_spacing_pt=self._text_line_height(font, size),
+                             native_cap_height=cap_height(font, size), native_flow=True)
         if name in self._table_helpers and call.body is not None:
             previous = self._table_settings.copy()
             self._table_settings.update(self._table_helpers[name])
@@ -386,6 +391,12 @@ class BlockBuilderMixin:
                         for c in range(col, col + colspan):
                             if (r, c) != (row, col):
                                 covered.add((r, c))
+        inset_map = {}
+        for item in call.arg("cell-insets", []):
+            if isinstance(item, list) and len(item) == 3 and isinstance(item[2], dict):
+                inset_map[(int(item[0]), int(item[1]))] = {
+                    edge: length_to_pt(value) for edge, value in item[2].items()
+                    if edge in {"top", "bottom", "left", "right"}}
         fill_map: dict[tuple[int, int], str] = {}
         fills = call.arg("fills")
         if isinstance(fills, list):
@@ -429,6 +440,7 @@ class BlockBuilderMixin:
                         row=r,
                         col=c,
                         fill=fill_map.get((r, c)),
+                        insets=inset_map.get((r, c), {}),
                         valign=valign_map.get((r, c)),
                     )
                 )
@@ -518,11 +530,22 @@ class BlockBuilderMixin:
                 index = r * ncols + c
                 if index >= len(cells):
                     break
+                blocks = self._parse_blocks(cells[index].text, f"{location}:cell:{r}:{c}")
+                if blocks and isinstance(blocks[-1], Paragraph) and blocks[-1].native_flow:
+                    from .text_bounds import cap_height
+                    last = blocks[-1]
+                    spec = self.document.styles.get(last.style or "Normal")
+                    size = spec.size if spec and spec.size else self.document.default_size
+                    font = spec.font if spec and spec.font else self.document.default_font
+                    cap = cap_height(font, size)
+                    line = last.line_spacing_pt or (spec.line_spacing_pt if spec else None)
+                    padding = max(0, line - cap) if line and cap is not None else 0
+                    row_gap = length_to_pt(call.arg("row-gutter"), 0)
+                    last.space_after = max(0, row_gap - padding) if (r + 1) * ncols < len(cells) else 0
+                    last.native_flow = False
                 row.append(
                     TableCell(
-                        blocks=self._parse_blocks(
-                            cells[index].text, f"{location}:cell:{r}:{c}"
-                        ),
+                        blocks=blocks,
                         row=r,
                         col=c * 2 if gutter else c,
                     )

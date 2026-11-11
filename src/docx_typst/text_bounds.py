@@ -42,9 +42,11 @@ def _line_excess(paragraph: Any) -> float:
             rule = style.paragraph_format.line_spacing_rule
         style = style.base_style
     for run in paragraph.runs:
-        if run.text.strip() and run.font.size and (size is None or run.font.size > size):
-            size = run.font.size
-            font = run.font.name or font
+        if run.text.strip():
+            candidate_size = run.font.size or size
+            if candidate_size and (size is None or candidate_size >= size):
+                size = candidate_size
+                font = run.font.name or font
     if not size or not font or line is None:
         return 0.0
     from .docx_reader import split_font_face
@@ -60,14 +62,24 @@ def _line_excess(paragraph: Any) -> float:
     return max(0.0, line_height - height) if height is not None else 0.0
 
 
-def native_cell_padding(cell: Any, inset: float) -> None:
+def native_cell_padding(cell: Any, inset: float | dict[str, float]) -> None:
     paragraphs = cell.paragraphs
     if not paragraphs:
         return
-    top = max(0.0, inset - _line_excess(paragraphs[0]) / 2)
-    bottom = max(0.0, inset - _line_excess(paragraphs[-1]) / 2)
-    if top == inset and bottom == inset:
+    values = {edge: inset.get(edge, 0) if isinstance(inset, dict) else inset
+              for edge in ("top", "bottom", "left", "right")}
+    top_excess = _line_excess(paragraphs[0]) / 2
+    bottom_excess = _line_excess(paragraphs[-1]) / 2
+    top = max(0.0, values["top"] - top_excess)
+    bottom = max(0.0, values["bottom"] - bottom_excess)
+    if isinstance(inset, dict):
+        # When an authored edge is zero, compensate the remaining line-box
+        # padding at the other edge rather than enlarging the whole row.
+        bottom = max(0.0, bottom - max(0.0, top_excess - values["top"]))
+        top = max(0.0, top - max(0.0, bottom_excess - values["bottom"]))
+    if not isinstance(inset, dict) and top == inset and bottom == inset:
         return
+    values.update(top=top, bottom=bottom)
     # Preserve the logical table inset in tblCellMar for source round trips.
     # Word's line box already supplies part of the visible vertical inset;
     # only the remainder belongs in the per-cell top/bottom margins.
@@ -76,7 +88,7 @@ def native_cell_padding(cell: Any, inset: float) -> None:
     if margins is None:
         margins = OxmlElement("w:tcMar")
         properties.insert_element_before(margins, "w:textDirection", "w:tcFitText", "w:vAlign", "w:hideMark")
-    for edge, value in (("top", top), ("bottom", bottom)):
+    for edge, value in (values.items() if isinstance(inset, dict) else (("top", top), ("bottom", bottom))):
         for previous in margins.findall(qn("w:" + edge)):
             margins.remove(previous)
         element = OxmlElement("w:" + edge)

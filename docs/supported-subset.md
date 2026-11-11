@@ -135,3 +135,10 @@ Single-line native headings at an explicit page or section start can use style
 properties `word-page-before` and `word-page-line-spacing-pt` to map Typst's tight
 first-line edges to Word's paragraph box. These properties affect DOCX export
 only; headings that wrap retain their original multiline baseline spacing.
+
+
+`docx-table` accepts `cell-insets: ((row, column, (top: ..., bottom: ...,
+left: ..., right: ...)), ...)` for shared Typst/Word cell geometry. The Word
+writer compensates for its text line boxes without shrinking the text. Merged
+rows retain the sum of the declared column widths. Native Word table shading
+has square corners; clipping a Typst table does not round Word table corners.

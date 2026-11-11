@@ -70,7 +70,8 @@ class TableWriterMixin:
             # aligns the table frame; compensate for Word's cell inset.
             indent = OxmlElement("w:tblInd")
             indent.set(qn("w:type"), "dxa")
-            indent.set(qn("w:w"), str(round((block.cell_margins_pt if block.cell_margins_pt is not None else 5.4) * 20)))
+            left_inset = block.rows[0][0].insets.get("left", block.cell_margins_pt if block.cell_margins_pt is not None else 5.4)
+            indent.set(qn("w:w"), str(round(left_inset * 20)))
             table._tbl.tblPr.insert_element_before(indent, "w:tblBorders", "w:shd", "w:tblLayout", "w:tblCellMar", "w:tblLook")
         if block.stroke is not None:
             self._table_borders(table, block.stroke, block.borders)
@@ -111,7 +112,9 @@ class TableWriterMixin:
                         min(nrows - 1, cell.row + cell.rowspan - 1),
                         min(ncols - 1, cell.col + cell.colspan - 1),
                     )
-                    start.merge(end)
+                    merged = start.merge(end)
+                    if any(widths):
+                        merged.width = Pt(sum(widths[cell.col : cell.col + cell.colspan]))
         for row_index in range(min(block.header_rows, nrows)):
             tr_pr = table.rows[row_index]._tr.get_or_add_trPr()
             header = OxmlElement("w:tblHeader")
@@ -167,7 +170,7 @@ class TableWriterMixin:
                     target.add_paragraph()
                 if block.native_text_bounds and block.cell_margins_pt is not None:
                     from .text_bounds import native_cell_padding
-                    native_cell_padding(target, block.cell_margins_pt)
+                    native_cell_padding(target, cell.insets or block.cell_margins_pt)
         self._pending_space = 0.0
         self._pending_block_space = block.space_after or 0.0
         self.counts["tables"] = self.counts.get("tables", 0) + 1

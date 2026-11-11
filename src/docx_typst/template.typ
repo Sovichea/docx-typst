@@ -285,6 +285,7 @@
   header-rows: 0,
   merges: (),
   fills: (),
+  cell-insets: (),
   valigns: (),
   keep-together: false,
   style: none,
@@ -301,6 +302,10 @@
   let fill-map = (:)
   for item in fills {
     fill-map.insert(str(item.at(0)) + ":" + str(item.at(1)), item.at(2))
+  }
+  let inset-map = (:)
+  for item in cell-insets {
+    inset-map.insert(str(item.at(0)) + ":" + str(item.at(1)), item.at(2))
   }
   let valign-map = (:)
   for item in valigns {
@@ -337,16 +342,18 @@
       let cell-body = if valign == "center" { std.align(horizon, cell) }
         else if valign == "bottom" { std.align(bottom, cell) }
         else { cell }
+      let cell-inset = inset-map.at(key, default: inset)
       let cell-fill = if fill == none { none } else { rgb(fill) }
       if span.at(0) > 1 or span.at(1) > 1 {
         row-cells.push(table.cell(
           rowspan: span.at(0),
           colspan: span.at(1),
           fill: cell-fill,
+          inset: cell-inset,
           align: cell-align,
         )[#cell-body])
       } else {
-        row-cells.push(table.cell(fill: cell-fill, align: cell-align)[#cell-body])
+        row-cells.push(table.cell(fill: cell-fill, inset: cell-inset, align: cell-align)[#cell-body])
       }
     }
     rows.push(row-cells)

@@ -207,6 +207,11 @@ class InlineParser:
                 _apply(inner, anchor=target.name)
             elif isinstance(target, str):
                 _apply(inner, link=target)
+            # Typst links inherit surrounding text appearance. Explicit run
+            # styling from imported Word content is still applied afterwards.
+            for item in inner:
+                if item.underline is None:
+                    item.underline = False
             runs.extend(inner)
             return True
         if name == "docx-anchor-link":

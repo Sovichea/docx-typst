@@ -251,6 +251,7 @@ class Paragraph:
 
 @dataclass
 class TableCell:
+    insets: dict[str, float] = field(default_factory=dict)
     blocks: list["Block"] = field(default_factory=list)
     colspan: int = 1
     rowspan: int = 1

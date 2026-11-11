@@ -114,6 +114,8 @@ class DocxWriter(FlowSpacingMixin, TableWriterMixin, PageWriterMixin):
         from .source_preservation import attach_sources
         attach_sources(self)
         self.output.parent.mkdir(parents=True, exist_ok=True)
+        from .font_embedding import embed_script_fonts
+        embed_script_fonts(self.doc, getattr(self, "_script_fonts", set()))
         self.doc.save(self.output)
         return self.model
 
@@ -541,8 +543,20 @@ class DocxWriter(FlowSpacingMixin, TableWriterMixin, PageWriterMixin):
             font.name = weight_face(family, model.weight)
             font.bold = False
         if model.font and any("\u1780" <= c <= "\u17ff" for c in model.text):
+            self._script_fonts = getattr(self, "_script_fonts", set()) | {model.font}
             fonts = run._r.get_or_add_rPr().get_or_add_rFonts()
             fonts.set(qn("w:cs"), model.font)
+            fonts.set(qn("w:eastAsia"), model.font)
+            fonts.set(qn("w:hint"), "cs")
+            size = model.size or (run._parent.style.font.size.pt if run._parent.style.font.size else self.model.default_size)
+            complex_size = OxmlElement("w:szCs")
+            complex_size.set(qn("w:val"), str(round(size * 2)))
+            run._r.get_or_add_rPr().append(complex_size)
+            script = OxmlElement("w:cs")
+            run._r.get_or_add_rPr().append(script)
+            language = OxmlElement("w:lang")
+            language.set(qn("w:bidi"), "km-KH")
+            run._r.get_or_add_rPr().append(language)
         if model.italic is not None:
             font.italic = model.italic
         if model.underline is not None:
@@ -584,7 +598,7 @@ class DocxWriter(FlowSpacingMixin, TableWriterMixin, PageWriterMixin):
     def _hyperlink(self, paragraph: Any, model: Run) -> None:
         run = paragraph.add_run(model.text)
         self._format_run(run, model)
-        if model.link and model.color is None:
+        if model.link and model.color is None and model.underline is not False:
             run.font.color.rgb = RGBColor(0x05, 0x63, 0xC1)
         if model.link and model.underline is None:
             run.font.underline = True

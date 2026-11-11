@@ -316,3 +316,41 @@ def test_header_and_footer_rules_use_the_correct_paragraph_edges(tmp_path: Path)
     assert section.header._element.xpath(".//w:pBdr/w:bottom")
     assert section.footer._element.xpath(".//w:pBdr/w:top")
     assert not section.footer._element.xpath(".//w:pBdr/w:bottom")
+
+
+def test_single_contact_table_preserves_fill_padding_and_merged_width(tmp_path: Path) -> None:
+    source = project(tmp_path, '''
+#docx-table(columns: 2, rows: 3, widths: (117pt, 1fr),
+  merges: ((0, 0, 1, 2),), stroke: none, inset: 0pt,
+  fills: ((0, 0, "#FFF9E7"), (1, 0, "#FFF9E7"), (1, 1, "#FFF9E7"), (2, 0, "#FFF9E7"), (2, 1, "#FFF9E7")),
+  cell-insets: (
+    (0, 0, (left: 18pt, right: 18pt, top: 18pt, bottom: 18pt)),
+    (1, 0, (left: 18pt, right: 14pt, top: 6pt, bottom: 6pt)),
+    (1, 1, (left: 0pt, right: 18pt, top: 6pt, bottom: 6pt))),
+  cells: ([Company], [Phone], [Number], [Registration], [1000061103]))
+''')
+    typst_to_docx(source, tmp_path / "out.docx")
+    document = Document(tmp_path / "out.docx")
+    assert len(document.tables) == 1
+    table = document.tables[0]
+    assert not table._tbl.xpath(".//w:tbl")
+    assert len(table.rows) == 3
+    assert abs(table.cell(0, 0).width.pt - sum(c.width.pt for c in table.columns)) < 0.1
+    assert table.cell(1, 0).width.pt == 117
+    assert table._tbl.tblPr.find(qn("w:tblInd")).get(qn("w:w")) == "360"
+    assert table.cell(1, 0)._tc.tcPr.find(qn("w:tcMar")).find(qn("w:left")).get(qn("w:w")) == "360"
+    for row in table.rows:
+        for cell in row.cells:
+            assert cell._tc.tcPr.find(qn("w:shd")).get(qn("w:fill")) == "FFF9E7"
+
+
+def test_simple_imported_panel_resolves_template_palette(tmp_path: Path) -> None:
+    (tmp_path / "layout.typ").write_text(
+        '#let palette = (cream: rgb("FFF9E7"))\n'
+        '#let panel(body) = block(fill: palette.cream, inset: 18pt, body)', encoding="utf-8")
+    source = project(tmp_path, '#panel[Contact]')
+    source.write_text('#import "layout.typ": panel\n' + source.read_text(encoding="utf-8"), encoding="utf-8")
+    typst_to_docx(source, tmp_path / "out.docx")
+    table = Document(tmp_path / "out.docx").tables[0]
+    assert table.cell(0, 0)._tc.tcPr.find(qn("w:shd")).get(qn("w:fill")) == "FFF9E7"
+    assert table._tbl.tblPr.find(qn("w:tblCellMar")).find(qn("w:left")).get(qn("w:w")) == "360"

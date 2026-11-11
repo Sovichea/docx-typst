@@ -24,6 +24,7 @@ from .typst_syntax import (
     balanced,
     length_to_pt,
     parse_call_arguments,
+    parse_value,
     strip_comments,
     UnitValue,
 )
@@ -50,6 +51,7 @@ class TypstParser(BlockBuilderMixin):
         self._paragraph_leading: Any = UnitValue(7, "pt")
         self._parse_depth = 0
         self._table_helpers: dict[str, dict[str, Any]] = {}
+        self._panel_helpers: dict[str, dict[str, Any]] = {}
         self._text_helpers: dict[str, dict[str, Any]] = {}
         # Resolve simple content-only wrappers from local imports, such as the
         # template's compact-table. Do not evaluate arbitrary helper code.
@@ -59,6 +61,22 @@ class TypstParser(BlockBuilderMixin):
             if not imported.startswith("@") and path.is_file():
                 modules.append(path.read_text(encoding="utf-8-sig"))
         for module in modules:
+            constants = {}
+            for binding in re.finditer(r"#let\s+([\w-]+)\s*=\s*\(", module):
+                arguments, _ = balanced(module, binding.end() - 1, "(", ")")
+                value = parse_value("(" + arguments + ")")
+                if isinstance(value, dict):
+                    constants[binding.group(1)] = value
+            for match in re.finditer(r"#let\s+([\w-]+)\(body\)\s*=\s*block\s*\(", module):
+                arguments, _ = balanced(module, match.end() - 1, "(", ")")
+                positional, named = parse_call_arguments(arguments)
+                if len(positional) != 1 or str(positional[0]) != "body":
+                    continue
+                for key, value in list(named.items()):
+                    parts = str(value).split(".")
+                    if len(parts) == 2 and parts[0] in constants:
+                        named[key] = constants[parts[0]].get(parts[1], value)
+                self._panel_helpers[match.group(1)] = named
             for match in re.finditer(r"#let\s+([\w-]+)\(body\)\s*=\s*text\s*\(", module):
                 arguments, _ = balanced(module, match.end() - 1, "(", ")")
                 positional, named = parse_call_arguments(arguments)
