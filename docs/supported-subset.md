@@ -150,6 +150,32 @@ style spacing is retained. `docx-space(amount, word: ...)` keeps `amount` in
 Typst while exporting the specified Word gap; it defaults to the same amount.
 
 
+## Explicit calculated results
+
+`docx-eval("unique-id", value)` lets Typst evaluate an explicitly annotated
+visible result during DOCX export. The supported evaluated representation includes
+text, strong/emphasis, links, line breaks, grids, and tables with resolved cell
+fills, borders, alignment, spans, and insets. Identifiers must be unique literal
+strings. Unsupported opaque formatting fails explicitly rather than exporting
+Typst syntax as content. Unannotated arbitrary programs are not evaluated.
+
+Keep inputs, formulas, and imported calculation helpers in the authored source.
+Word receives editable static values; unchanged exports retain the original
+formulas and local dependencies for guarded source restoration. Editing values
+in Word does not recalculate the Typst program or update its inputs.
+
+`docx-settings` supplies export-only page/header/footer metadata while leaving an
+existing native template active. `docx-money` represents an editable currency
+symbol and right-tabbed amount; the tab accounts for per-cell horizontal insets.
+`docx-table` supports `cell-borders`, `cell-aligns`, `cell-no-wrap`, and optional
+`text-style` metadata for the corresponding Word table properties.
+
+For template-dependent native SVG artwork, `docx-static` accepts `style-context`
+(an imported template helper name) and `container-width` (the available native
+width). These export hints preserve the drawing body in the native source.
+Formatted page fields use styled field instructions with `CHARFORMAT` so Word
+updates retain their surrounding font, size, and color.
+
 ## Guarded native source restoration
 
 New Typst-to-DOCX exports include the original entrypoint and local dependencies.

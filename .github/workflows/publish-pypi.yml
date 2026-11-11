@@ -41,6 +41,15 @@ jobs:
         run: python -m build
       - name: Validate distributions
         run: python -m twine check --strict dist/*
+      - name: Check versions and packaged contents
+        run: python tools/check_release.py dist
+      - name: Smoke-test installed wheel in a fresh environment
+        shell: bash
+        run: |
+          python -m venv .release-venv
+          .release-venv/bin/python -m pip install dist/*.whl
+          .release-venv/bin/python -m pip check
+          .release-venv/bin/python tools/smoke_release.py
       - uses: actions/upload-artifact@v4
         with:
           name: python-distributions

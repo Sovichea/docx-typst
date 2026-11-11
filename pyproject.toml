@@ -15,7 +15,7 @@ dependencies = [
   "Pillow>=10",
   "lxml>=4.9",
   "fonttools>=4.50",
-  "typst>=0.11",
+  "typst>=0.15.2",
 ]
 keywords = ["docx", "word", "typst", "document", "converter"]
 classifiers = [
@@ -36,6 +36,8 @@ classifiers = [
 Homepage = "https://github.com/Sovichea/docx-typst"
 Repository = "https://github.com/Sovichea/docx-typst"
 Issues = "https://github.com/Sovichea/docx-typst/issues"
+Documentation = "https://github.com/Sovichea/docx-typst/blob/main/docs/supported-subset.md"
+Changelog = "https://github.com/Sovichea/docx-typst/blob/main/CHANGELOG.md"
 
 [project.scripts]
 docx-typst = "docx_typst.cli:main"
@@ -46,6 +48,7 @@ docx-typst-validate = "docx_typst.validate:main"
 [project.optional-dependencies]
 test = ["pytest>=8.2"]
 svg = ["cairosvg>=2.7"]
+release = ["build>=1.2", "twine>=6"]
 
 [tool.setuptools]
 package-dir = {"" = "src"}

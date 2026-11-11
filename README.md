@@ -1,18 +1,18 @@
 # docx-typst
 
-`docx-typst` is a bidirectional document conversion tool. It converts Word (`.docx`) documents into editable Typst projects and exports a documented, statically resolvable Typst subset back to editable Word documents.
+`docx-typst` is a bidirectional document conversion tool. It converts Word (`.docx`) documents into editable Typst projects and exports a documented Typst subset, including explicit calculated results, back to editable Word documents.
 
 It is designed for **file-based document workflows**, including AI-agent and version-control workflows. A document can be read and revised as readable Typst source, compiled to PDF for review, and exported to DOCX without a live Word session. Supported text, styles, lists, tables, images, headers, footers, and page setup remain editable. Conversion reports identify content that is approximated, flattened, or unsupported.
 
 Version `0.1.0` is an alpha release for documents within the documented subset. It does not claim to reproduce every Word or Typst feature. Review `conversion_report.json` and inspect important pages before delivery.
 
-- [Supported subset](docs/supported-subset.md)
-- [Agentic document workflow](docs/agentic-document-workflow.md)
+- [Supported subset](https://github.com/Sovichea/docx-typst/blob/main/docs/supported-subset.md)
+- [Agentic document workflow](https://github.com/Sovichea/docx-typst/blob/main/docs/agentic-document-workflow.md)
 
 ## Agent skills
 
-- [`typst-docx-adapt`](skills/typst-docx-adapt/SKILL.md): adapt an existing Typst project for editable Word export while preserving its design.
-- [`typst-docx-author`](skills/typst-docx-author/SKILL.md): author a new Typst document with DOCX-compatible constructs from the start.
+- [`typst-docx-adapt`](https://github.com/Sovichea/docx-typst/blob/main/skills/typst-docx-adapt/SKILL.md): adapt an existing Typst project for editable Word export while preserving its design.
+- [`typst-docx-author`](https://github.com/Sovichea/docx-typst/blob/main/skills/typst-docx-author/SKILL.md): author a new Typst document with DOCX-compatible constructs from the start.
 
 Copy either skill directory into your agent's skills directory, including its references and UI metadata. In Codex, invoke `$typst-docx-adapt` or `$typst-docx-author`.
 
@@ -66,7 +66,7 @@ docx-to-typst report.docx --output report-typst --strict
 typst-to-docx report-typst/main.typ --output report-roundtrip.docx
 ```
 
-The reverse converter reads the documented static subset. It does not evaluate arbitrary Typst programs, dynamic expressions, loops, or user-defined macros. It writes `conversion_report.json` next to the output. Pass `--reference template.docx` to reuse an existing document's theme and styles, and `--strict` to fail when unsupported content is found.
+The reverse converter reads the documented static subset. Unannotated arbitrary Typst programs, dynamic expressions, loops, and user-defined macros are not evaluated. Wrap supported calculated results in `docx-eval` to evaluate them with Typst during export. It writes `conversion_report.json` next to the output. Pass `--reference template.docx` to reuse an existing document's theme and styles, and `--strict` to fail when unsupported content is found.
 
 A typical edit-and-export loop:
 
@@ -76,6 +76,24 @@ docx-to-typst source.docx --output working
 typst compile working/main.typ working/preview.pdf
 typst-to-docx working/main.typ --output revised.docx
 ```
+
+### Calculations and source roundtrip
+
+Keep input data, formulas, and calculation helpers in the Typst source:
+
+```typst
+#let subtotal = 3 * 100
+#let total = subtotal * 1.1
+#docx-eval("total", [Total: #calc.round(total, digits: 2)])
+```
+
+`docx-eval` exports supported text, grids, and tables as editable static Word
+content. The DOCX embeds the original source and required local dependencies;
+re-importing an unchanged export restores their original bytes, including formulas
+and native drawing code. Check `source_restoration: "exact"` in the import report.
+Word edits can require reconstruction of the edited static representation instead
+of formula restoration. Word does not execute Typst calculations. Use
+`docx-to-typst document.docx --output project --reconstruct` to bypass restoration.
 
 ### Static diagrams and panels
 
@@ -120,7 +138,7 @@ Use `docx-canvas` for a bounded page layout and `docx-position` for editable tex
 
 Use a zero-margin page without a header or footer for a full-page cover. Source order controls layer order. Put artwork in `docx-static` and text in `docx-position` to keep the text editable in Word.
 
-Exported documents retain native static/canvas source and local file dependencies in a related package part. Reimport restores the drawing code, including after Word opens and saves the document. Plain-text edits and deletion of existing cover text boxes are reflected in the restored source. Arbitrary Word shape movement, new text boxes, and formatting changes are not imported into the original canvas source.
+Exported documents retain native static/canvas source and local file dependencies in a related package part. Reimport restores the drawing code, including after Word opens and saves the document. Exact full-source restoration applies to unchanged exports; edits to supported Word content or layout trigger reconstruction instead of silently restoring stale source. Arbitrary shape edits remain outside the supported subset.
 
 Use `docx-panel` for a shaded callout that should stay editable:
 
@@ -162,14 +180,14 @@ docx-typst to-docx document-typst/main.typ --output document.docx
 | Character formatting | Bold, italic, underline, strike, caps, super/subscript, color, highlight, font, size | The same supported properties |
 | Lists | Bullet and numbered levels with resolved markers | List Bullet and List Number styles |
 | Tables | Grid widths, header rows, horizontal/vertical merges, cell fills, common borders | Native tables, merges, header rows, cell fills |
-| Images | PNG/JPEG/SVG retained; legacy formats converted or reported | PNG/JPEG embedded; SVG rasterized when Cairo is available |
+| Images | PNG/JPEG/SVG retained; legacy formats converted or reported | PNG/JPEG embedded; SVG with Office fallback when a renderer is available |
 | Links and bookmarks | External hyperlinks and named bookmarks | External hyperlinks and internal anchors |
 | Headers and footers | Default section header/footer and page fields | Section headers, footers, page-number fields |
 | Page setup | Paper size, margins, columns, orientation, sections | Paper size, margins, columns, orientation, sections |
 | Footnotes | Rendered as Typst footnotes with a warning | Exported as superscript note text |
 | Comments, charts, SmartArt, OLE, equations | Reported as unsupported or approximated | Not reconstructed |
 
-The reverse converter also accepts a small native Typst subset, including headings, paragraphs, bullet and numbered lists, `*strong*`, `_emphasis_`, inline code, `#link`, `#image`, `#figure`, `#table`, and `#grid`. Two authoring helpers extend it: `#docx-static` rasterizes arbitrary Typst content to a PNG at export time, and `#docx-panel` becomes an editable shaded table cell.
+The reverse converter also accepts a small native Typst subset, including headings, paragraphs, bullet and numbered lists, `*strong*`, `_emphasis_`, inline code, `#link`, `#image`, `#figure`, `#table`, and `#grid`. Authoring helpers extend it: `docx-static` exports native artwork as PNG or SVG, `docx-panel` becomes an editable shaded table cell, and `docx-eval` evaluates explicitly annotated calculations at export time.
 
 ## Reports and validation
 
@@ -195,7 +213,7 @@ backward = typst_to_docx("report-typst/main.typ", "report-roundtrip.docx")
 ## Fidelity notes
 
 - Typst normalizes whitespace, smart punctuation, and some spacing. Word's layout engine and Typst's layout engine will not produce identical line breaks.
-- Fonts are referenced by name but are not embedded or installed. Missing fonts change wrapping and alignment.
+- Fonts are referenced by name; available supported script fonts can be embedded when their embedding rights permit. Fonts are not installed automatically. Missing or substituted fonts change wrapping and alignment.
 - Native tables inherit literal `set table` inset and stroke rules. Left-aligned table frames align with the text margin; uniform border colors and widths are written explicitly instead of relying on Word table styles. Table/image gaps preserve paragraph spacing and explicit vertical space, with adjacent automatic gaps collapsed.
 - Table paragraph show rules such as `show table: set par(justify: false)` override inherited body justification. Word cell margins account for paragraph line boxes so padding is not added twice; the logical Typst inset remains available for source round trips. Fonts, font sizes, and line spacing are retained.
 - General floating shapes and text boxes are outside the supported subset; converter-authored `docx-canvas` layouts preserve their source and editable text. Comments, tracked-change metadata, native chart data, SmartArt, OLE objects, and complex equations are outside the supported subset.
@@ -208,13 +226,15 @@ backward = typst_to_docx("report-typst/main.typ", "report-roundtrip.docx")
 ```console
 python -m pip install -e ".[test]"
 python -m pytest -q
-python -m pip install --upgrade build twine
+python -m pip install -e ".[release]"
 python -m build
 python -m twine check --strict dist/*
 ```
+
+For release validation and trusted publishing setup, see [Releasing to PyPI](https://github.com/Sovichea/docx-typst/blob/main/docs/releasing.md).
 
 Open an [issue](https://github.com/Sovichea/docx-typst/issues) for questions or bug reports.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](https://github.com/Sovichea/docx-typst/blob/main/LICENSE).
