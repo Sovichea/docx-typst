@@ -1,0 +1,3 @@
+interface:
+  display_name: "Adapt Typst for Word"
+  short_description: "Adapt existing Typst for editable DOCX export"
