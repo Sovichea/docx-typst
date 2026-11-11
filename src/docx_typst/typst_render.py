@@ -498,6 +498,14 @@ def render_table(table: TableBlock) -> str:
         for row in table.rows for cell in row if cell.insets]
     if insets:
         lines.append(f"  cell-insets: ({', '.join(insets)},),")
+    borders = [f"({cell.row}, {cell.col}, (" + ", ".join(
+        f"{edge}: {value}" for edge, value in cell.borders.items()) + "))"
+        for row in table.rows for cell in row if cell.borders]
+    if borders:
+        lines.append(f"  cell-borders: ({', '.join(borders)},),")
+    nowrap = [f"({cell.row}, {cell.col})" for row in table.rows for cell in row if cell.no_wrap]
+    if nowrap:
+        lines.append(f"  cell-no-wrap: ({', '.join(nowrap)},),")
     if table.keep_together:
         lines.append("  keep-together: true,")
     lines.append("  cells: (")

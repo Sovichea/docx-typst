@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from typing import Any
+from dataclasses import replace
+import re
 
 from .model import Document, ImageRef, Run
 from .typst_syntax import (
@@ -122,6 +124,11 @@ class InlineParser:
 
     def _call(self, call: TypstCall, runs: list[Run]) -> bool:
         name = call.name
+        if name == "docx-money":
+            runs.extend([Run(text=str(call.arg("symbol", "$"))), Run(kind="money-tab"), Run(text=str(call.positional[0]))])
+            return True
+        if name in {"hide", "metadata"}:
+            return True
         if name in {"linebreak", "parbreak"}:
             runs.append(Run(kind="break"))
             return True
@@ -139,6 +146,10 @@ class InlineParser:
             runs.append(Run(text="________"))
             return True
         if name in {"strong", "emph", "underline", "strike", "smallcaps", "sub", "super", "upper", "docx-allcaps"}:
+            if call.body is None and len(call.positional) == 1 and isinstance(call.positional[0], TypstCall):
+                nested = call.positional[0]
+                from .typst_syntax import Content
+                call = replace(call, body=Content("#" + nested.raw))
             if call.body is None:
                 return False
             inner = self.parse(call.body.text)
@@ -173,9 +184,9 @@ class InlineParser:
             if isinstance(font, str):
                 kwargs["font"] = font
             elif isinstance(font, list) and font:
-                # Preserve the supplied script fallback, rather than silently
-                # dropping the font tuple for Khmer text.
-                kwargs["font"] = font[-1] if any("\u1780" <= c <= "\u17ff" for r in inner for c in r.text) else font[0]
+                inner = [replace(run, text=piece, font=font[-1] if re.search(r"[\u1780-\u17ff]", piece) else font[0])
+                         for run in inner for piece in (re.split(r"([\u1780-\u17ff]+)", run.text) if run.kind == "text" else [run.text])
+                         if piece or run.kind != "text"]
             if size is not None:
                 kwargs["size"] = length_to_pt(size)
             color = color_to_rgb(fill)

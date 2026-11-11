@@ -60,6 +60,8 @@ class TableMixin:
                     colspan=span,
                     rowspan=1,
                     fill=fill,
+                    borders=_table_border_map(tc_pr, "tcBorders"),
+                    no_wrap=first(tc_pr, "./w:noWrap") is not None,
                     insets={edge: twips(attr(node, "w:w")) or 0
                             for edge in ("top", "bottom", "left", "right")
                             if (node := first(tc_pr, f"./w:tcMar/w:{edge}")) is not None},
@@ -131,8 +133,8 @@ def _cell_fill(tc_pr: Any, theme: Any) -> str | None:
     return None
 
 
-def _table_border_map(tbl_pr: Any) -> dict[str, str]:
-    borders = first(tbl_pr, "./w:tblBorders")
+def _table_border_map(tbl_pr: Any, tag: str = "tblBorders") -> dict[str, str]:
+    borders = first(tbl_pr, "./w:" + tag)
     values = {}
     if borders is None:
         return values

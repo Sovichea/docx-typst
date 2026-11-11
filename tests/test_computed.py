@@ -47,6 +47,12 @@ def test_computations_export_values_and_restore_formulas(tmp_path: Path):
         assert (restored / 'main.typ').read_text() == authored
         assert (restored / 'prices.typ').read_bytes() == library.read_bytes()
         typst.compile(str(restored / 'main.typ'))
+        # Editing an individual cell border invalidates the original source.
+        edge.set(qn('w:color'), 'FF0000')
+        doc.save(output)
+        changed = tmp_path / f'changed-{number}'
+        assert docx_to_typst(output, changed)['source_restoration'] == 'reconstructed'
+        assert '#FF0000' in (changed / 'main.typ').read_text()
 
 
 def test_opaque_computed_formatting_fails_explicitly(tmp_path: Path):
@@ -55,4 +61,23 @@ def test_opaque_computed_formatting_fails_explicitly(tmp_path: Path):
     source.write_text('#import "template.typ": *\n#docx-eval("styled", text(fill: red)[Value])')
     with pytest.raises(ValueError, match='unsupported computed content: styled'):
         typst_to_docx(source, tmp_path / 'out.docx')
+
+
+def test_currency_and_nested_inline_formatting(tmp_path: Path):
+    shutil.copyfile(Path(__file__).parents[1] / "src/docx_typst/template.typ", tmp_path / "template.typ")
+    source = tmp_path / 'currency.typ'
+    source.write_text('''#import "template.typ": *
+#docx-eval("money", table(columns: (70pt,), inset: 5pt,
+  [*#docx-money("1,234.00")*]))
+#link("https://example.com")[#underline(text(fill: blue)[Website])]
+''')
+    typst_to_docx(source, tmp_path / 'out.docx')
+    doc = Document(tmp_path / 'out.docx')
+    money = doc.tables[0].cell(0, 0).paragraphs[0]
+    assert money.text == '$\t1,234.00'
+    assert money.paragraph_format.tab_stops[0].position.pt == 60
+    assert all(r.bold for r in money.runs if r.text != "\t")
+    link = doc.paragraphs[0]._p
+    assert ''.join(link.xpath('.//w:t/text()')) == 'Website'
+    assert link.xpath('.//w:u') and link.xpath('.//w:color[@w:val="0000FF"]')
 

@@ -24,7 +24,7 @@ typst-to-docx working/main.typ --output revised.docx
 
 1. **Establish a reference.** Keep the editable source and a freshly compiled reference PDF. For a Word-origin project, retain the original DOCX as well.
 2. **Read conversion reports.** Review unsupported and approximated content after each conversion. A completed conversion can still contain layout losses.
-3. **Edit supported constructs.** Preserve semantic paragraph, heading, list, table, and image wrappers. Arbitrary Typst functions are not evaluated by the exporter.
+3. **Edit supported constructs.** Preserve semantic paragraph, heading, list, table, and image wrappers. Use explicit `docx-eval` boundaries for calculations; arbitrary unannotated Typst functions are not evaluated by the exporter.
 4. **Compile before export.** Check markup, asset paths, fonts, clipping, and native layout before diagnosing Word-specific differences.
 5. **Export and render in Word.** When targeting Microsoft Word, use Microsoft Word to repaginate and render the DOCX. A Typst PDF or another office renderer cannot establish Word fidelity.
 6. **Compare every rendered page.** Inspect the final export at readable resolution. Contact sheets help locate issues, but small text, rules, and table insets require closer views.
@@ -38,6 +38,33 @@ docx-typst-validate source.docx working
 ```
 
 This is a content-preservation check, not a comparison of the final DOCX render. Run export and visual verification separately.
+
+## Calculated documents
+
+Keep formulas, input data, and imported calculation helpers in the authored
+Typst source. Annotate their visible results with unique literal identifiers:
+
+```typst
+#let amount = items.map(item => item.qty * item.price).sum()
+#docx-eval("quotation-total", [Total: #amount])
+#docx-eval("quotation-items", render-items(items))
+```
+
+During DOCX export, Typst evaluates the document and the converter reads these
+results as structured text, grids, and tables. Word receives editable static
+values. The entrypoint and local calculation dependencies remain embedded in
+the DOCX source package; the source file on disk is never rewritten to values.
+Unsupported opaque formatting fails explicitly instead of emitting code as text.
+
+Keep native diagrams under `docx-static`; use `style-context` and
+`container-width` when their SVG export depends on an imported template and
+the document's content width. These export hints leave native artwork unchanged.
+
+Check changed inputs, taxes, totals, milestone amounts, cell styling, and every
+Word page. After a real Word save, re-import and compare source/dependency bytes
+and native rendered pages. Formula restoration applies to unchanged exports;
+Word edits trigger reconstruction of the edited static representation rather
+than silently restoring stale formulas. Word does not recalculate these values.
 
 ## Re-importing an exported DOCX
 

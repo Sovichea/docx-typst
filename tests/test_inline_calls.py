@@ -5,6 +5,7 @@ import shutil
 
 from docx import Document
 
+
 from docx_typst import typst_to_docx
 
 
@@ -48,3 +49,18 @@ def test_inline_calls_at_block_start_keep_their_formatting(tmp_path: Path) -> No
     assert [r.target_ref for r in rels] == ["https://example.com"]
     assert document.paragraphs[1].text == "Styled text"
     assert not any(item["source_type"] == "link" for item in report["diagnostics"])
+
+
+def test_page_fields_keep_surrounding_footer_format(tmp_path: Path) -> None:
+    project = _project(tmp_path, '''#text(font: "Calibri", size: 9pt, fill: rgb("#3b62a6"))[
+Page #docx-page-number() of #docx-page-count()
+]''')
+    output = tmp_path / "fields.docx"
+    typst_to_docx(project / "main.typ", output)
+    fields = Document(output).element.body.xpath(".//w:instrText/..")
+    assert len(fields) == 2
+    for field in fields:
+        assert field.xpath('./w:rPr/w:sz[@w:val="18"]')
+        assert field.xpath('./w:rPr/w:color[@w:val="3B62A6"]')
+        assert field.xpath('./w:rPr/w:rFonts[@w:ascii="Calibri"]')
+        assert 'CHARFORMAT' in field.xpath('./w:instrText/text()')[0]

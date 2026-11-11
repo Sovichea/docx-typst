@@ -11,7 +11,7 @@ class FlowSpacingMixin:
         previous = node.getprevious()
         # Automatic block spacing disappears at the start of a page/section;
         # explicit #v spacing remains deliberate authored content.
-        at_start = previous is None or (
+        at_start = previous is None or previous.tag == qn("w:tcPr") or (
             previous.tag == qn("w:p") and previous.find(".//" + qn("w:sectPr")) is not None)
         after = 0.0
         if not at_start and previous.tag == qn("w:p"):

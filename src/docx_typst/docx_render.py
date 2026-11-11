@@ -386,7 +386,7 @@ class DocxWriter(FlowSpacingMixin, TableWriterMixin, PageWriterMixin):
         style = self._ensure_style(block.style or "Normal")
         paragraph = container.add_paragraph(style=style)
         self._paragraph_format(paragraph, block)
-        if block.right_tab:
+        if block.right_tab or any(run.kind == "money-tab" for run in block.runs):
             from docx.enum.text import WD_TAB_ALIGNMENT
             paragraph.paragraph_format.tab_stops.add_tab_stop(
                 Pt(self._available_table_width(container)), WD_TAB_ALIGNMENT.RIGHT)
@@ -498,7 +498,7 @@ class DocxWriter(FlowSpacingMixin, TableWriterMixin, PageWriterMixin):
         if run.kind == "column-break":
             paragraph.add_run().add_break(WD_BREAK.COLUMN)
             return
-        if run.kind == "tab":
+        if run.kind in {"tab", "money-tab"}:
             paragraph.add_run().add_tab()
             return
         if run.kind == "field":
@@ -632,8 +632,27 @@ class DocxWriter(FlowSpacingMixin, TableWriterMixin, PageWriterMixin):
             name = name[: -len("_PADDED")]
         target = "PAGEREF _dxt_document_end" if name == "NUMPAGES" else name
         instruction = f' {target} \\# "00" ' if padded else f" {target} "
+        if any(getattr(model, key) is not None for key in ("font", "size", "color", "bold", "italic", "underline")):
+            # Word rebuilds simple fields during updates. CHARFORMAT uses the
+            # instruction's first character, so style code and delimiters too.
+            for kind in ("begin", "instruction", "separate", "result", "end"):
+                run = paragraph.add_run("1" if kind == "result" else "")
+                self._format_run(run, model)
+                if kind == "instruction":
+                    node = OxmlElement("w:instrText")
+                    node.set(qn("xml:space"), "preserve")
+                    node.text = instruction + r"\* CHARFORMAT "
+                elif kind != "result":
+                    node = OxmlElement("w:fldChar")
+                    node.set(qn("w:fldCharType"), kind)
+                else:
+                    run.text = "01" if padded and name == "PAGE" else "1"
+                    continue
+                run._r.append(node)
+            return
         field.set(qn("w:instr"), instruction)
         run = paragraph.add_run("01" if padded and name == "PAGE" else "1")
+        self._format_run(run, model)
         paragraph._p.append(field)
         field.append(run._r)
 

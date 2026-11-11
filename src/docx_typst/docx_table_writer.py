@@ -142,6 +142,8 @@ class TableWriterMixin:
                 target = table.cell(cell.row, cell.col)
                 if cell.borders:
                     self._table_borders(target, "none", cell.borders, cell=True)
+                if cell.no_wrap:
+                    target._tc.get_or_add_tcPr().insert_element_before(OxmlElement("w:noWrap"), "w:tcMar", "w:vAlign")
                 if cell.fill:
                     self._cell_fill(target, cell.fill)
                 if cell.valign:
@@ -150,7 +152,8 @@ class TableWriterMixin:
                     )
                 self._clear_cell(target)
                 previous_inset = getattr(self, "_cell_inset", 0.0)
-                self._cell_inset = block.cell_margins_pt or 0.0
+                self._cell_inset = ((cell.insets.get("left", 0) + cell.insets.get("right", 0)) / 2
+                                    if cell.insets else block.cell_margins_pt or 0.0)
                 self._pending_space = self._pending_block_space = 0.0
                 self._blocks(target, cell.blocks)
                 if cell.blocks and isinstance(cell.blocks[-1], Paragraph) and cell.blocks[-1].native_flow:
@@ -169,7 +172,9 @@ class TableWriterMixin:
                     tail.paragraph_format.line_spacing = Pt(self._pending_space)
                 self._cell_inset = previous_inset
                 if not cell.blocks:
-                    target.add_paragraph()
+                    marker = target.add_paragraph().paragraph_format
+                    marker.space_before = marker.space_after = Pt(0)
+                    marker.line_spacing = Pt(1)
                 if cell.insets or (block.native_text_bounds and block.cell_margins_pt is not None):
                     from .text_bounds import native_cell_padding
                     native_cell_padding(target, cell.insets or block.cell_margins_pt, compensate=block.native_text_bounds)
@@ -185,6 +190,8 @@ class TableWriterMixin:
             properties.remove(existing)
         borders = OxmlElement(tag)
         for edge in ("top", "left", "bottom", "right", "insideH", "insideV"):
+            if cell and edge in {"insideH", "insideV"}:
+                continue
             edge_stroke = (overrides or {}).get(edge, stroke)
             width, color = 1.0, (0, 0, 0)
             for part in split_top_level(edge_stroke, "+"):

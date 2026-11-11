@@ -252,6 +252,7 @@ class Paragraph:
 
 @dataclass
 class TableCell:
+    no_wrap: bool = False
     borders: dict[str, str] = field(default_factory=dict)
     insets: dict[str, float] = field(default_factory=dict)
     blocks: list["Block"] = field(default_factory=list)

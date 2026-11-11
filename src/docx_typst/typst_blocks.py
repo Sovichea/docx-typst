@@ -421,6 +421,7 @@ class BlockBuilderMixin:
         border_map = {(int(r), int(c)): {edge: stroke_value(v) for edge, v in paints.items()}
                       for r, c, paints in call.arg("cell-borders", [])}
         align_map = {(int(r), int(c)): value for r, c, value in call.arg("cell-aligns", [])}
+        nowrap = {tuple(item) for item in call.arg("cell-no-wrap", [])}
         valign_map: dict[tuple[int, int], str] = {}
         valigns = call.arg("valigns")
         if isinstance(valigns, list):
@@ -451,6 +452,8 @@ class BlockBuilderMixin:
                 )
                 self._table_paragraphs(blocks)
                 for paragraph in blocks:
+                    if isinstance(paragraph, Paragraph) and call.arg("text-style") in self.document.styles and paragraph.style in {None, "Normal"}:
+                        paragraph.style = call.arg("text-style")
                     if isinstance(paragraph, Paragraph) and (r, c) in align_map:
                         paragraph.align = align_map[(r, c)]
                 row.append(
@@ -463,6 +466,7 @@ class BlockBuilderMixin:
                         fill=fill_map.get((r, c)),
                         insets=inset_map.get((r, c), {}),
                         borders=border_map.get((r, c), {}),
+                        no_wrap=(r, c) in nowrap,
                         valign=valign_map.get((r, c)),
                     )
                 )

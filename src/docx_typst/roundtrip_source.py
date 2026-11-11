@@ -45,6 +45,10 @@ def _model_state(model, output: Path):
                     continue
                 if k in BOOLS and v is None:
                     v = current.get(k, False)
+                if k == "valign" and v is None:
+                    v = "top"
+                if k == "space_before" and v is None:
+                    v = current.get(k) or 0.0
                 result[k] = normalize(v, k, current)
             return result
         if key in BOOLS:

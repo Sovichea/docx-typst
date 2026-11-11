@@ -546,6 +546,11 @@ class ValueParser:
             inner, self.pos = balanced(self.text, self.pos, "(", ")")
             args, kwargs = parse_call_arguments(inner)
             raw = f"{name}({inner})"
+            body = None
+            if self.pos < len(self.text) and self.text[self.pos] == "[":
+                inner_body, self.pos = balanced(self.text, self.pos, "[", "]")
+                body = Content(inner_body)
+                raw += "[" + inner_body + "]"
             lower = name.lower()
             if lower in {"rgb", "color.rgb"}:
                 return color_from_args(args, kwargs)
@@ -556,7 +561,7 @@ class ValueParser:
                     return UnitValue(float(args[0]), lower)
             if lower in {"black", "white"} and not args:
                 return NAMED_COLORS[lower]
-            return TypstCall(name=name, positional=args, named=kwargs, raw=raw)
+            return TypstCall(name=name, positional=args, named=kwargs, body=body, raw=raw)
         lower = name.lower()
         if lower == "true":
             return True

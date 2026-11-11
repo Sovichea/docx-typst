@@ -1,4 +1,4 @@
-﻿// Minimal, neutral document primitives used by generated docx-typst projects.
+ï»¿// Minimal, neutral document primitives used by generated docx-typst projects.
 // Import with: #import "template.typ": *
 //
 // The module intentionally implements a static subset. It does not evaluate
@@ -289,8 +289,10 @@
   cell-insets: (),
   cell-borders: (),
   cell-aligns: (),
+  cell-no-wrap: (),
   borders: (:),
   native-text-bounds: true,
+  text-style: none,
   valigns: (),
   keep-together: false,
   style: none,
@@ -411,7 +413,7 @@
 
 #let docx-allcaps(body) = upper(body)
 
-#let docx-static(path: none, width: 100%, height: auto, format: "png", body) = {
+#let docx-static(path: none, width: 100%, height: auto, format: "png", style-context: none, container-width: none, body) = {
   if path != none {
     image(path, width: width, height: height)
   } else {
@@ -471,6 +473,7 @@
   if name in ("text", "symbol") { return (kind: "text", text: fields.at("text", default: "")) }
   if name in ("space", "linebreak", "parbreak") { return (kind: name) }
   if name == "v" { return (kind: "v", amount: repr(fields.amount)) }
+  if name == "smartquote" { return (kind: "text", text: if fields.at("double", default: true) { "\"" } else { "â€™" }) }
   if name in ("table", "grid") {
     let columns = fields.at("columns", default: 1)
     if type(columns) == int { columns = range(columns).map(_ => 1fr) }
@@ -524,8 +527,9 @@
         for c in range(col, col + colspan) { occupied.insert(str(r) + ":" + str(c), true) }
       }
     }
-    let widths = columns.enumerate().map(((i, width)) => repr(if width == auto { auto-widths.at(i) } else { width }))
-    return (kind: name, columns: widths, cells: cells, header-rows: calc.ceil(header-cells / ncols),
+    // Allow Word border clearance and its end-of-cell marker at auto edges.
+    let widths = columns.enumerate().map(((i, width)) => repr(if width == auto { auto-widths.at(i) + 2pt } else { width }))
+    return (kind: name, columns: widths, auto-columns: columns.enumerate().filter(((i, width)) => width == auto).map(((i, width)) => i), cells: cells, header-rows: calc.ceil(header-cells / ncols),
       column-gutter: repr(fields.at("column-gutter", default: 0pt)), row-gutter: repr(fields.at("row-gutter", default: 0pt)))
   }
   let result = (kind: name)

@@ -9,6 +9,8 @@ from .typst_syntax import parse_call_at, strip_comments, typst_escape
 
 
 def _length(value):
+    if str(value).startswith("(") and str(value).endswith(",)"):
+        value = str(value)[1:-2]
     value = re.sub(r"^0%\s*\+\s*", "", str(value))
     if "%" in value:
         raise ValueError(f"computed percentage track needs an explicit export width: {value}")
@@ -71,7 +73,7 @@ def _table(node):
     cells = [c for c in node["cells"] if c["col"] < ncols]
     rows = max(c["row"] + c["rowspan"] for c in cells)
     lines = [f'#docx-table(columns: {ncols}, rows: {rows}, widths: (' + ', '.join(widths) + ',),',
-             f'header-rows: {node["header-rows"]}, stroke: none, inset: 0pt,']
+             f'header-rows: {node["header-rows"]}, stroke: none, inset: 0pt, text-style: "Table Text",']
     merges, fills, insets, borders, aligns, valigns, bodies = [], [], [], [], [], [], []
     for cell in cells:
         r, c = cell["row"], cell["col"]
@@ -92,6 +94,10 @@ def _table(node):
         if values:
             lines.append(f'{key}: (' + ', '.join(values) + ',),')
     lines.append('cells: (' + ', '.join(bodies) + ',))')
+    nowrap = [f'({cell["row"]}, {cell["col"]})' for cell in cells
+              if cell["col"] in node.get("auto-columns", []) and cell["colspan"] == 1]
+    if nowrap:
+        lines.insert(-1, 'cell-no-wrap: (' + ', '.join(nowrap) + ',),')
     return "\n".join(lines)
 
 

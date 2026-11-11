@@ -58,7 +58,13 @@ def _render_body(
     width_pt: float,
     target: Path,
     height_pt: float | None = None,
+    style_context: str | None = None,
+    container_width: float | None = None,
 ) -> str | None:
+    if style_context:
+        if not re.fullmatch(r"[A-Za-z_][\w-]*", style_context):
+            raise ValueError("static style-context must name an imported helper")
+        preamble += f"\n#show: {style_context}.with()"
     if target.suffix == ".svg":
         height = f"{height_pt:.6f}pt" if height_pt is not None else "auto"
         wrapper = project_root / f".docx-static-{target.stem}.typ"
@@ -67,9 +73,10 @@ def _render_body(
             # export hint. Measure and retain that complete native frame;
             # clipping at the requested width silently drops drawing content.
             drawing = [
-                "#set page(width: auto, height: auto, margin: 0pt, fill: none)",
+                "#set page(width: auto, height: auto, margin: 0pt, fill: none, header: none, footer: none)",
                 "#context {",
                 "let artwork = [", body, "]",
+                f"artwork = block(width: {container_width}pt, artwork)" if container_width else "",
                 "let bounds = measure(artwork)",
                 "block(width: bounds.width, height: bounds.height, clip: false, artwork)",
                 "}",
@@ -165,7 +172,9 @@ def materialize_static_blocks(
         relative = f"assets/static/docx-static-{count}-{digest}.{fmt}"
         target = project_root / relative
         target.parent.mkdir(parents=True, exist_ok=True)
-        error = _render_body(project_root, preamble, call.body.text, width, target, height)
+        container = call.arg("container-width")
+        error = _render_body(project_root, preamble, call.body.text, width, target, height,
+                             call.arg("style-context"), _width_pt(container) if container is not None else None)
         if error:
             line_number = text[: match.start()].count("\n") + 1
             warnings.append(
