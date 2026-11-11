@@ -13,6 +13,7 @@ Create the editable Typst source and its Word export together, using supported c
 - Locate the installed converter or checkout and inspect its helper module and CLI. Check construct availability for that version. In a checkout, consult `docs/agentic-document-workflow.md` for the current review procedure.
 - With no supplied template, `docx-typst init project` provides a compatible starter. Use a new directory; do not overwrite user files with `--force`. When integrating an approved template, copy the helper module into a new path using `docx-typst module --output project/docx-typst.typ`.
 - Define the document's styles once in `docx-styles`. Keep user-facing content at its actual source call sites. Prefer supported semantic constructs over new document-specific rendering macros.
+- For calculated documents, retain input data, formulas, and calculation libraries in Typst. Read [Calculated documents](references/authoring-patterns.md#calculated-documents); use explicit `docx-eval` boundaries so only DOCX export receives static results.
 
 ## Author for both renderers
 
@@ -22,7 +23,7 @@ Create the editable Typst source and its Word export together, using supported c
 - Author decorative heading rules as separate `docx-rule` calls. Complex heading show rules that create decorations are not supported conversion constructs. Match the template's typography and spacing; do not replace rules with custom inline Word shapes.
 - Keep illustrations and native drawing code inside `docx-static` only when the exported artwork can be static. Prefer SVG for vector artwork. Keep text outside static layers when it must remain editable; use supported cover canvas/position constructs when needed.
 - Use standard image calls with deliberate sizes and alt text. Check bounds and proportions instead of forcing oversized artwork into a smaller frame.
-- Keep links and page-number fields semantic. Use dynamic total fields. Ensure independent numbered lists restart correctly.
+- Keep links and page-number fields semantic. Use dynamic page-total fields. Verify the result's font, size, color, and weight after Word updates the fields; cached formatting alone is insufficient. Ensure independent numbered lists restart correctly.
 - Use explicit page breaks only when they serve the content. `docx-pagebreak()` is available for intentional Word-only pagination. Keep all page, column, and section markers on separate full paragraph lines in Word.
 
 ## Iterate against real Word output
@@ -39,5 +40,7 @@ Inspect every final page at readable zoom. Compare the native and Word renders f
 Use measured Word-only style spacing or `docx-space` for actual line-box differences, keeping the native values intact. Do not copy another document's calibration numbers. Preserve font sizes and multiline baseline spacing; do not compress typography to make a page count match.
 
 Verify script fonts in the rendered output, including Khmer. Word may substitute a font despite the source family name. Font embedding is limited by available font files and embedding rights; verify the font actually used after opening and saving in Word.
+
+For calculations, verify a changed input in an isolated copy and check every dependent amount. Re-import the unchanged Word-saved DOCX, compare formulas and local dependency bytes, and compile the restored source for native page comparison. Exact source restoration uses embedded provenance; Word edits can require reconstruction of static values instead of restoring formulas.
 
 Re-render after final corrections. For converter changes, run relevant tests and commit coherently with at most 500 additions and deletions per commit. Deliver the source, DOCX, review result, and material limitations. Rounded native panels do not make Word table corners round, and successful compilation does not prove visual equivalence.

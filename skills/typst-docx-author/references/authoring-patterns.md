@@ -47,6 +47,43 @@ The following is a small working example for a document with no supplied visual 
 )
 ```
 
+## Calculated documents
+
+Keep data and calculation helpers in the authored Typst project. With a converter
+and helper module supporting `docx-eval`, annotate each visible result with a
+unique literal identifier:
+
+```typst
+#let subtotal = items.map(item => item.qty * item.price).sum()
+#let total = subtotal * (1 + vat-rate)
+#docx-eval("quotation-total", [Total: #fmt(total)])
+#docx-eval("quotation-items", render-quotation-items(items, vat-rate: vat-rate))
+```
+
+Here `items`, `vat-rate`, `fmt`, and the table renderer are the document's own
+inputs/helpers. Typst evaluates them during DOCX export; Word receives editable
+static values. Never overwrite the authored formulas with those values. Keep
+generated tables within one evaluation boundary, with supported semantic text
+formatting; opaque styles can be unsupported and must not silently flatten.
+
+When retaining an approved native template, use supported `docx-settings` for
+export-only page/header/footer metadata. Preserve native artwork under
+`docx-static`; `style-context` and `container-width` can supply its template and
+actual available width during SVG export without changing the native drawing.
+
+Verify generated cell borders, fills, alignment, per-edge insets, and auto-column
+wrapping. Empty grid gutter cells must not introduce paragraph-height rows.
+Use `docx-money` for editable symbol/amount alignment where appropriate; its
+right-aligned tab must respect the cell's individual horizontal padding.
+
+Test a changed input in an isolated copy and check dependent totals and payment
+amounts. After a real Word save, re-import the unchanged export and compare
+source/dependency bytes and native pages. The DOCX embeds formulas and required
+local dependencies for exact source restoration; this is provenance recovery,
+not recovery from rendered images. Word edits can trigger static reconstruction,
+and Word itself does not run Typst formulas. Avoid packaging unrelated files or
+duplicate copies of visible binary assets.
+
 ## Text, headings, and spacing
 
 Use named styles rather than repeating font overrides in body content. A simple imported helper named `contact-heading` uses an existing `Contact Heading` paragraph style; ensure that the style exists when relying on that mapping.
@@ -102,5 +139,12 @@ Keep editable titles and cover metadata outside the static art. Supported `docx-
 ## Review gates
 
 Review the native PDF, export diagnostics, and Word-rendered PDF separately. Check every final page and inspect formatting marks for break markers. Compare equivalent visible edges and matching sections rather than assuming equal page counts.
+
+Update fields in every Word story, repaginate, save, and render before approving
+page numbering. Compare PAGE and total-page results with surrounding footer text
+for font, size, color, weight, and padding formats. Styled cached results alone
+can revert on update; the converter must also format the field instruction
+(formatted complex fields with `CHARFORMAT`). Correct the converter or use a
+version with this support rather than manually patching cached field results.
 
 Font families named in source can still be substituted by Word. Verify script glyphs and wrapping after a Word save; use supported font embedding only where available and permitted. Report any missing renderer, unsupported construct, font substitution, or visual limitation instead of claiming an unperformed review.

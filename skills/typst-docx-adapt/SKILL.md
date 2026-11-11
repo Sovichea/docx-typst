@@ -18,7 +18,7 @@ Produce a compatible Typst entrypoint and an editable DOCX. Preserve the origina
 
 Read [Conversion patterns](references/conversion-patterns.md) when mapping content, artwork, tables, or pagination.
 
-1. Classify each construct as supported editable content, static native artwork, or an unsupported layout/programming dependency. Do not assume imported macros or show rules execute in the exporter.
+1. Classify each construct as supported editable content, an explicit computed result, static native artwork, or an unsupported layout/programming dependency. Preserve calculations and their imported helpers; use `docx-eval` for export-time evaluation as described in [Calculated documents](references/conversion-patterns.md#calculated-documents). Do not assume unannotated macros or show rules execute in the exporter.
 2. Build `docx-styles` from the reference's actual styles. Keep the existing visual template; use the matching paragraph styles for editable text. A simple text helper such as `contact-heading` can use the existing `Contact Heading` style.
 3. Use supported semantic paragraphs, headings, lists, tables, and links. Keep text local to its source call site. Preserve list restarts and table alignment rules, including explicit right alignment in headers and footers.
 4. Keep native artwork code intact inside `docx-static`, with explicit dimensions and SVG export when required. Separate editable cover text and logos from static decoration; use supported canvas/position constructs only when needed.
@@ -35,8 +35,10 @@ typst-to-docx main-docx-typst.typ --output adapted.docx
 
 - Compare the adapted native render with the original before diagnosing Word differences. Review every conversion diagnostic; flattening may lose fills, insets, positioning, or styles even when text remains.
 - Render the DOCX with Microsoft Word when that is the target application. Repaginate, update all story fields, repaginate again, and export PDF. Preserve the user's open documents. Inspect the saved DOCX as well if Word saves it during verification.
+- Check page-number and page-count results against surrounding footer text after field updates: font, size, color, weight, and padding formats must survive recalculation. A correctly styled cached field result alone is insufficient.
 - Inspect every final page. Measure corresponding visible edges for header-to-heading, rule-to-body, text-block, and body-to-footer gaps. Compare corresponding sections when page counts differ. Review table fills, borders, frame position, padding, row heights, merged widths, image bounds, fonts, and script substitution at readable zoom.
 - Check page, column, and section markers with formatting marks enabled: each marker belongs on a full separate paragraph line. Preserve required orientation sections. Use DOCX-only breaks only for intentional Word pagination.
 - Re-render after corrections and run relevant converter tests when code changes. Keep commits coherent and below 500 changed lines each.
+- For calculated documents, test a changed input in an isolated copy. Verify dependent totals and payments, then re-import the unchanged Word-saved export and compare source/dependency bytes and native rendered pages. Report whether restoration is exact or reconstruction; do not promise formulas survive arbitrary Word edits.
 
 Deliver the adapted source, DOCX, and verification result. State remaining limitations, including Word tables' square corners or unsupported editability. Do not claim page-by-page or click testing that was not performed.
