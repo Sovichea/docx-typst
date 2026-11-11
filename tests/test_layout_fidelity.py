@@ -354,3 +354,26 @@ def test_simple_imported_panel_resolves_template_palette(tmp_path: Path) -> None
     table = Document(tmp_path / "out.docx").tables[0]
     assert table.cell(0, 0)._tc.tcPr.find(qn("w:shd")).get(qn("w:fill")) == "FFF9E7"
     assert table._tbl.tblPr.find(qn("w:tblCellMar")).find(qn("w:left")).get(qn("w:w")) == "360"
+
+
+def test_imported_text_helper_uses_existing_word_paragraph_style(tmp_path: Path) -> None:
+    (tmp_path / "layout.typ").write_text(
+        '#let contact-heading(body) = text(font: "Arial", size: 28pt, body)', encoding="utf-8")
+    source = project(tmp_path, '#contact-heading[Company]')
+    source.write_text('#import "layout.typ": contact-heading\n'
+        '#let docx-styles = ("Contact Heading": (font: "Arial", size: 28pt, '
+        'word-after: 36.2pt, line-spacing-pt: 30.48pt))\n'
+        + source.read_text(encoding="utf-8"), encoding="utf-8")
+    typst_to_docx(source, tmp_path / "out.docx")
+    paragraph = Document(tmp_path / "out.docx").paragraphs[0]
+    assert paragraph.style.name == "Contact Heading"
+    assert abs(paragraph.paragraph_format.line_spacing.pt - 30.48) < 0.06
+    assert abs(paragraph.style.paragraph_format.space_after.pt - 36.2) < 0.01
+
+
+def test_word_specific_space_does_not_change_typst_spacing(tmp_path: Path) -> None:
+    source = project(tmp_path, 'Before\n#docx-space(24pt, word: 6pt)\nAfter')
+    typst_to_docx(source, tmp_path / "out.docx")
+    after = next(p for p in Document(tmp_path / "out.docx").paragraphs if p.text == "After")
+    assert after.paragraph_format.space_before.pt == 6
+    assert '#docx-space(24pt, word: 6pt)' in source.read_text(encoding="utf-8")

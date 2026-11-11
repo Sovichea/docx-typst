@@ -63,7 +63,10 @@ class BlockBuilderMixin:
             size = length_to_pt(settings.get("size"), self.document.default_size)
             from .text_bounds import cap_height
             font = settings.get("font", self.document.default_font)
-            return Paragraph(runs=runs, line_spacing_pt=self._text_line_height(font, size),
+            style_name = name.replace("-", " ").title()
+            spec = self.document.styles.get(style_name)
+            return Paragraph(style=style_name if spec else None, runs=runs,
+                             line_spacing_pt=spec.line_spacing_pt if spec and spec.line_spacing_pt is not None else self._text_line_height(font, size),
                              native_cap_height=cap_height(font, size), native_flow=True)
         if name in self._table_helpers and call.body is not None:
             previous = self._table_settings.copy()
@@ -206,6 +209,9 @@ class BlockBuilderMixin:
             return UnsupportedBlock(
                 kind="image", text=string_value(call.arg("alt")) or ""
             )
+        if name == "docx-space":
+            value = call.arg("word", call.positional[0] if call.positional else UnitValue(0, "pt"))
+            return Spacer(height_pt=length_to_pt(value))
         if name == "docx-pagebreak":
             return PageBreak()
         if name == "docx-page-start":

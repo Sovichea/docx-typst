@@ -142,3 +142,9 @@ left: ..., right: ...)), ...)` for shared Typst/Word cell geometry. The Word
 writer compensates for its text line boxes without shrinking the text. Merged
 rows retain the sum of the declared column widths. Native Word table shading
 has square corners; clipping a Typst table does not round Word table corners.
+
+
+Simple imported text helpers use an existing paragraph style when their name
+matches it (for example, `contact-heading` uses `Contact Heading`). Word-only
+style spacing is retained. `docx-space(amount, word: ...)` keeps `amount` in
+Typst while exporting the specified Word gap; it defaults to the same amount.

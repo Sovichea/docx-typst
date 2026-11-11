@@ -432,3 +432,7 @@
   ]
 }
 
+
+
+// Native spacing may need a different Word gap because of its line boxes.
+#let docx-space(amount, word: auto) = v(amount)
