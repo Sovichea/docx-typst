@@ -10,7 +10,8 @@
 }
 
 #let docx-align(name) = {
-  if name == "center" { center }
+  if type(name) != str { name }
+  else if name == "center" { center }
   else if name == "right" { right }
   else { left }
 }
@@ -248,9 +249,9 @@
 ) = {
   let picture = image(path, width: width, height: height, alt: alt)
   if caption != none {
-    std.align(align)[#figure(picture, caption: caption)]
+    std.align(docx-align(align))[#figure(picture, caption: caption)]
   } else {
-    std.align(align)[#picture]
+    std.align(docx-align(align))[#picture]
   }
 }
 

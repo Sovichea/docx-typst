@@ -73,6 +73,15 @@ def _dependencies(base: Path, text: str) -> dict[str, str]:
                 collect(candidate.parent, data.decode("utf-8-sig"))
 
     collect(base, text)
+    # A helper's image(path) resolves relative to its defining module, not
+    # the call site. Retain existing assets at those module-relative paths too.
+    modules = [(base, text)] + [((base / name).parent, base64.b64decode(data).decode("utf-8-sig"))
+                               for name, data in list(files.items()) if name.endswith(".typ")]
+    references = {match.group(1) for _, content in modules
+                  for match in re.finditer(r'"([^"\r\n]+)"', content)}
+    for folder, _ in modules:
+        for reference in references:
+            collect(folder, json.dumps(reference))
     return files
 
 
@@ -96,15 +105,22 @@ def _imports(text: str) -> str:
 
 
 def attach_sources(writer: Any) -> None:
-    if not writer.source_records:
+    if not writer.source_text and not writer.source_records:
         return
     data = {"version": 1, "records": writer.source_records,
             "imports": _imports(writer.source_text),
             "files": _dependencies(writer.base, writer.source_text)}
+    from .roundtrip_source import snapshot_entry, document_state
+    entry = snapshot_entry(writer)
+    if entry is not None:
+        data["entry"] = entry
     package = writer.doc.part.package
     part = Part(PackURI("/docxTypst/source.json"), "application/json",
                 json.dumps(data, ensure_ascii=False).encode("utf-8"), package)
     writer.doc.part.relate_to(part, REL)
+    if entry is not None:
+        entry["baseline"] = document_state(writer.doc)
+        part._blob = json.dumps(data, ensure_ascii=False).encode("utf-8")
 
 
 def load_sources(reader: Any) -> dict[str, Any]:

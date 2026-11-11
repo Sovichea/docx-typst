@@ -23,7 +23,7 @@ def test_asymmetric_borders_and_cell_insets_survive_reconstruction(tmp_path: Pat
   cells: ([Text],))
 ''', encoding="utf-8")
     typst_to_docx(source, tmp_path / "first.docx")
-    docx_to_typst(tmp_path / "first.docx", tmp_path / "restored")
+    docx_to_typst(tmp_path / "first.docx", tmp_path / "restored", restore_source=False)
     restored = tmp_path / "restored/main.typ"
     assert "borders:" in restored.read_text(encoding="utf-8")
     typst.compile(str(restored))

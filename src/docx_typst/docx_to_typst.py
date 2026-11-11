@@ -29,6 +29,7 @@ def convert(
     extract_media: bool = True,
     keep_empty: bool = True,
     strict: bool = False,
+    restore_source: bool = True,
 ) -> dict[str, Any]:
     source_path = Path(source)
     output_path = Path(output)
@@ -41,20 +42,27 @@ def convert(
         keep_empty=keep_empty,
     )
     document = reader.read()
+    from .roundtrip_source import restored_entry
+    original = restored_entry(reader, document) if restore_source and extract_media and keep_empty and template is None else None
     main_text = render_document(document)
     imports = reader.native_sources.get("imports", "")
     if imports:
         main_text = main_text.replace('#import "template.typ": *',
                                       '#import "template.typ": *\n' + imports, 1)
-    (output_path / "main.typ").write_text(main_text, encoding="utf-8")
+    if original is not None:
+        (output_path / "main.typ").write_bytes(original)
+    else:
+        (output_path / "main.typ").write_text(main_text, encoding="utf-8")
 
     template_source = (
         Path(template) if template else Path(__file__).with_name("template.typ")
     )
     template_target = output_path / "template.typ"
-    shutil.copyfile(template_source, template_target)
+    if original is None:
+        shutil.copyfile(template_source, template_target)
 
     manifest = {
+        "source_restoration": "exact" if original is not None else "reconstructed",
         "source_file": source_path.name,
         "generator": f"docx-typst {__version__}",
         "default_font": document.default_font,
@@ -90,6 +98,7 @@ def convert(
     ):
         status = "completed_with_warnings"
     report = {
+        "source_restoration": "exact" if original is not None else "reconstructed",
         "source_file": source_path.name,
         "generator": f"docx-typst {__version__}",
         "status": status,
@@ -133,6 +142,7 @@ def main() -> None:
     parser.add_argument(
         "--strict", action="store_true", help="fail when unsupported content is found"
     )
+    parser.add_argument("--reconstruct", action="store_true", help="rebuild from Word instead of restoring unchanged packaged Typst source")
     args = parser.parse_args()
     report = convert(
         args.input_docx,
@@ -141,6 +151,7 @@ def main() -> None:
         extract_media=not args.no_media,
         keep_empty=not args.drop_empty,
         strict=args.strict,
+        restore_source=not args.reconstruct,
     )
     counts = report["counts"]
     print(

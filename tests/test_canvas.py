@@ -159,3 +159,62 @@ def test_svg_keeps_native_intrinsic_diagram_size_without_clipping(tmp_path: Path
     shape = Document(output).inline_shapes[0]
     assert shape.width.pt == 180
     assert shape.height.pt == 60
+
+
+def test_canvas_font_edit_disables_exact_source_restore(tmp_path: Path) -> None:
+    canvas = '''#docx-canvas(id: "cover", width: 120pt, height: 80pt)[
+  #docx-position(dx: 10pt, dy: 10pt, width: 100pt, height: 50pt, style: "Cover")[Title]
+]'''
+    root = project(tmp_path, canvas)
+    output = tmp_path / "canvas.docx"
+    typst_to_docx(root / "main.typ", output)
+    document = Document(output)
+    run = document.element.body.xpath(".//w:txbxContent/w:p/w:r")[0]
+    from docx.oxml import OxmlElement
+    properties = run.get_or_add_rPr()
+    properties.append(OxmlElement("w:b"))
+    document.save(output)
+    report = docx_to_typst(output, tmp_path / "restored")
+    assert report["source_restoration"] == "reconstructed"
+    assert any(d["issue"] == "native_source_changed" for d in report["diagnostics"])
+
+
+def test_word_fallback_copy_and_zero_spacing_normalization_keep_exact_source(tmp_path: Path) -> None:
+    import copy
+    canvas = '''#docx-canvas(id: "cover", width: 120pt, height: 80pt)[
+  #docx-position(dx: 10pt, dy: 10pt, width: 100pt, height: 50pt, style: "Cover")[Title]
+]'''
+    root = project(tmp_path, canvas)
+    output = tmp_path / "canvas.docx"
+    typst_to_docx(root / "main.typ", output)
+    document = Document(output)
+    drawing = document.element.body.xpath(".//w:drawing")[0]
+    box = drawing.xpath(".//w:txbxContent")[0]
+    fallback = etree.SubElement(drawing.getparent(), "{http://schemas.openxmlformats.org/markup-compatibility/2006}Fallback")
+    fallback.append(copy.deepcopy(box))
+    for spacing in box.iter(qn("w:spacing")):
+        if spacing.get(qn("w:before")) == "0":
+            del spacing.attrib[qn("w:before")]
+    document.save(output)
+    report = docx_to_typst(output, tmp_path / "restored")
+    assert report["source_restoration"] == "exact"
+    assert (tmp_path / "restored/main.typ").read_bytes() == (root / "main.typ").read_bytes()
+
+
+def test_svg_fallback_png_reencoding_does_not_discard_native_source(tmp_path: Path) -> None:
+    from io import BytesIO
+    root = project(tmp_path, ART)
+    output = tmp_path / "art.docx"
+    typst_to_docx(root / "main.typ", output)
+    document = Document(output)
+    blip = document.element.body.xpath(".//a:blip")[0]
+    fallback = document.part.rels[blip.get(qn("r:embed"))].target_part
+    image = Image.open(BytesIO(fallback.blob))
+    encoded = BytesIO()
+    image.save(encoded, format="PNG", compress_level=0)
+    assert fallback.blob != encoded.getvalue()
+    fallback._blob = encoded.getvalue()
+    document.save(output)
+    report = docx_to_typst(output, tmp_path / "restored")
+    assert report["source_restoration"] == "exact"
+    assert (tmp_path / "restored/main.typ").read_bytes() == (root / "main.typ").read_bytes()

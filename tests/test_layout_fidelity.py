@@ -33,7 +33,7 @@ def test_native_table_inherits_stroke_and_aligns_its_outer_border(tmp_path: Path
     assert len(borders) == 6
     assert all(border.get(qn("w:color")) == "DCE3DF" for border in borders)
     assert all(border.get(qn("w:sz")) == "4" for border in borders)
-    docx_to_typst(tmp_path / "out.docx", tmp_path / "restored")
+    docx_to_typst(tmp_path / "out.docx", tmp_path / "restored", restore_source=False)
     restored = (tmp_path / "restored/main.typ").read_text(encoding="utf-8")
     assert 'stroke: 0.5pt + rgb("#DCE3DF")' in restored
     assert "inset: 6pt" in restored

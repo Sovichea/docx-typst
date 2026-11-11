@@ -62,6 +62,7 @@ def main() -> None:
     to_typst.add_argument("input_docx", type=Path)
     to_typst.add_argument("--output", type=Path, default=Path("typst-output"))
     to_typst.add_argument("--strict", action="store_true")
+    to_typst.add_argument("--reconstruct", action="store_true", help="rebuild from Word instead of restoring unchanged packaged source")
 
     to_docx = commands.add_parser("to-docx", help="convert Typst to DOCX")
     to_docx.add_argument("main_typ", type=Path)
@@ -94,7 +95,7 @@ def main() -> None:
         return
     if args.command == "to-typst":
         report = convert_to_typst(
-            args.input_docx, args.output, strict=args.strict
+            args.input_docx, args.output, strict=args.strict, restore_source=not args.reconstruct
         )
         print(f"Created {args.output / 'main.typ'} ({report['status']})")
         return

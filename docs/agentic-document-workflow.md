@@ -39,6 +39,27 @@ docx-typst-validate source.docx working
 
 This is a content-preservation check, not a comparison of the final DOCX render. Run export and visual verification separately.
 
+## Re-importing an exported DOCX
+
+New exports package the original Typst entrypoint, local dependencies, and a
+baseline of the exported Word content and supported layout. Re-importing an
+unchanged export restores the original source bytes to `main.typ`, including
+comments, helper calls, styles, native artwork, and explicit layout constructs.
+Word-save normalizations such as fallback-image re-encoding and twip rounding
+are accounted for. Check `source_restoration: "exact"` in the import report.
+
+A Word content or supported-layout change invalidates exact restoration. The
+converter then reconstructs the current Word representation and reports
+`source_restoration: "reconstructed"`; it does not silently replace edits with
+old source. Unsupported Word edits can still need review. Older exports without
+a source snapshot cannot recover arbitrary original Typst structure.
+
+Use `docx-to-typst document.docx --output working --reconstruct` (or
+`docx-typst to-typst ... --reconstruct`) to exercise the Word reader explicitly.
+When testing border, image-alignment, or inset reconstruction, use that mode so
+source restoration does not mask a reader defect. Verify exact restoration by
+source-byte/dependency comparisons and rendered-page comparisons separately.
+
 ## Microsoft Word render and review
 
 When Word is installed locally, a render script can use Word automation to open the exported DOCX, repaginate, update fields in every story range, repaginate again, and export a PDF. Close the document and the automation-owned Word instance in a `finally` block. Preserve the user's open Word sessions.

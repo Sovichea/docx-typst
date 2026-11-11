@@ -148,3 +148,16 @@ Simple imported text helpers use an existing paragraph style when their name
 matches it (for example, `contact-heading` uses `Contact Heading`). Word-only
 style spacing is retained. `docx-space(amount, word: ...)` keeps `amount` in
 Typst while exporting the specified Word gap; it defaults to the same amount.
+
+
+## Guarded native source restoration
+
+New Typst-to-DOCX exports include the original entrypoint and local dependencies.
+An unchanged DOCX, including supported Word-save normalization, re-imports to the
+original source bytes. The report records `source_restoration: "exact"`.
+Edits to Word content or supported layout trigger semantic reconstruction with
+`source_restoration: "reconstructed"` and a diagnostic instead of restoring stale
+source. Older exports without snapshots use reconstruction. Use `--reconstruct`
+to force the Word reader, or `restore_source=False` in the Python API.
+Reconstruction preserves common asymmetric table borders, per-cell margins, and
+inherited inline-image alignment. It remains subject to the supported subset.
