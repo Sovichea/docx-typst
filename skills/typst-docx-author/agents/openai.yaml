@@ -1,0 +1,3 @@
+interface:
+  display_name: "Author Typst for Word"
+  short_description: "Create Typst documents ready for DOCX export"

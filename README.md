@@ -9,6 +9,13 @@ Version `0.1.0` is an alpha release for documents within the documented subset. 
 - [Supported subset](docs/supported-subset.md)
 - [Agentic document workflow](docs/agentic-document-workflow.md)
 
+## Agent skills
+
+- [`typst-docx-adapt`](skills/typst-docx-adapt/SKILL.md): adapt an existing Typst project for editable Word export while preserving its design.
+- [`typst-docx-author`](skills/typst-docx-author/SKILL.md): author a new Typst document with DOCX-compatible constructs from the start.
+
+Copy either skill directory into your agent's skills directory, including its references and UI metadata. In Codex, invoke `$typst-docx-adapt` or `$typst-docx-author`.
+
 ## Install
 
 Python 3.10 through 3.13 is supported.
