@@ -24,6 +24,7 @@
 }
 
 #let docx-page-start(n) = counter(page).update(n)
+#let docx-pagebreak() = none
 
 #let docx-leading(spec, size, line-spacing, line-spacing-pt) = {
   let multiple = if line-spacing != auto { line-spacing } else { spec.at("line-spacing", default: none) }

@@ -201,6 +201,8 @@ class BlockBuilderMixin:
             return UnsupportedBlock(
                 kind="image", text=string_value(call.arg("alt")) or ""
             )
+        if name == "docx-pagebreak":
+            return PageBreak()
         if name == "docx-page-start":
             value = call.positional[0] if call.positional else 1
             try:

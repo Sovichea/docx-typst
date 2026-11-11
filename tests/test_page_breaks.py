@@ -157,3 +157,18 @@ Body.
     assert headings[0].paragraph_format.space_before.pt == 0
     assert headings[1].paragraph_format.line_spacing is None
     assert headings[1].style.paragraph_format.line_spacing.pt == 25.5
+
+def test_docx_pagebreak_breaks_word_without_affecting_typst(tmp_path: Path) -> None:
+    project = _project(
+        tmp_path,
+        """First page.
+
+#docx-pagebreak()
+= Second Page
+""",
+    )
+    output = tmp_path / "docx-break.docx"
+    typst_to_docx(project / "main.typ", output)
+    document = Document(output)
+    assert document.element.body.xpath(".//w:br[@w:type='page']")
+    assert any(p.text == "Second Page" for p in document.paragraphs)
