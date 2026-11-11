@@ -161,3 +161,13 @@ source. Older exports without snapshots use reconstruction. Use `--reconstruct`
 to force the Word reader, or `restore_source=False` in the Python API.
 Reconstruction preserves common asymmetric table borders, per-cell margins, and
 inherited inline-image alignment. It remains subject to the supported subset.
+
+
+Source package version 2 references byte-identical Word media by SHA-256 instead
+of embedding duplicate base64 image data. Shared media references do not add
+source-to-image relationships, which would make Word clone those parts during
+Save. Dependencies absent from visible Word media are stored once as private
+binary parts, shared across source paths. Typst text stays inline. Import accepts
+both version-1 inline dependencies and version-2 references, resolving assets
+by hash across Word part renames. Missing or changed original asset bytes disable
+exact source restoration and produce a diagnostic instead of stale recovery.

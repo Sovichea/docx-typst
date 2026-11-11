@@ -107,7 +107,7 @@ def _imports(text: str) -> str:
 def attach_sources(writer: Any) -> None:
     if not writer.source_text and not writer.source_records:
         return
-    data = {"version": 1, "records": writer.source_records,
+    data = {"version": 2, "records": writer.source_records,
             "imports": _imports(writer.source_text),
             "files": _dependencies(writer.base, writer.source_text)}
     from .roundtrip_source import snapshot_entry, document_state
@@ -118,6 +118,9 @@ def attach_sources(writer: Any) -> None:
     part = Part(PackURI("/docxTypst/source.json"), "application/json",
                 json.dumps(data, ensure_ascii=False).encode("utf-8"), package)
     writer.doc.part.relate_to(part, REL)
+    from .source_assets import pack_files
+    data["files"] = pack_files(part, data["files"])
+    part._blob = json.dumps(data, ensure_ascii=False).encode("utf-8")
     if entry is not None:
         entry["baseline"] = document_state(writer.doc)
         part._blob = json.dumps(data, ensure_ascii=False).encode("utf-8")
@@ -127,15 +130,22 @@ def load_sources(reader: Any) -> dict[str, Any]:
     for rel in reader.docx.part.rels.values():
         if rel.reltype == REL and not rel.is_external:
             data = json.loads(rel.target_part.blob)
-            if data.get("version") != 1:
+            if data.get("version") not in {1, 2}:
                 return {}
             root = reader.output.resolve()
-            for relative, encoded in data.get("files", {}).items():
+            from .source_assets import unpack_files
+            files, issues = unpack_files(rel.target_part, data.get("files", {}))
+            if issues:
+                data["_asset_issues"] = issues
+                reader.warn("native_source_asset_changed", "approximated", "document",
+                            source_type="native source dependencies", fallback="reconstruct current Word content",
+                            reason="original source asset bytes are missing or changed: " + ", ".join(issues))
+            for relative, blob in files.items():
                 target = (root / relative).resolve()
                 if not target.is_relative_to(root):
                     raise ValueError("native source dependency escapes output directory")
                 target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_bytes(base64.b64decode(encoded, validate=True))
+                target.write_bytes(blob)
             return data
     return {}
 

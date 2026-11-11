@@ -79,7 +79,7 @@ def test_word_edits_are_not_replaced_by_stale_source(exported, tmp_path: Path, e
     document.save(output)
     report = docx_to_typst(output, tmp_path / "restored")
     assert report["source_restoration"] == "reconstructed"
-    assert any(d["issue"] == "native_source_changed" for d in report["diagnostics"])
+    assert any(d["issue"] in {"native_source_changed", "native_source_asset_changed"} for d in report["diagnostics"])
     restored = (tmp_path / "restored/main.typ").read_text(encoding="utf-8")
     assert restored != source.read_text(encoding="utf-8")
     if edit == "text":

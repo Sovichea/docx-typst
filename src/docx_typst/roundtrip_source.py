@@ -171,7 +171,7 @@ def equivalent(a, b, path=()):
 
 def restored_entry(reader, model):
     record = reader.native_sources.get("entry")
-    if not record or "baseline" not in record:
+    if not record or "baseline" not in record or reader.native_sources.get("_asset_issues"):
         return None
     state = {"model": semantic_state(reader, model), "package": _package_state(reader.docx)}
     if not equivalent(record["baseline"], state):
